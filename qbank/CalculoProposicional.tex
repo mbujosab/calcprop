@@ -1,0 +1,2228 @@
+% Created 2026-05-04 lun 11:40
+% Intended LaTeX compiler: pdflatex
+\documentclass[10pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage[top=1in, bottom=1.in, left=1in, right=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{float}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{textcomp}
+\usepackage{marvosym}
+\usepackage{wasysym}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage[theorems, skins]{tcolorbox}
+\usepackage[version=3]{mhchem}
+\usepackage[numbers,super,sort&compress]{natbib}
+\usepackage{natmove}
+\usepackage{url}
+\usepackage[cache=false]{minted}
+\usepackage[strings]{underscore}
+\usepackage[linktocpage,pdfstartview=FitH,colorlinks,
+linkcolor=blue,anchorcolor=blue,
+citecolor=blue,filecolor=blue,menucolor=blue,urlcolor=blue]{hyperref}
+\usepackage{attachfile}
+\usepackage{setspace}
+\usepackage{fontspec}          % para fuentes Unicode
+\usepackage{lmodern}           % o mejor, define una fuente explícita
+\setmainfont{Latin Modern Roman} % o cualquier otra que quieras
+\usepackage[spanish]{babel}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{natbib}
+\usepackage[indent]{parskip}
+\usepackage{amsthm,amsmath}
+\makeatletter \def\blfootnote{\gdef\@thefnmark{}\@footnotetext} \makeatother
+\usepackage{fullpage}
+\author{Marcos Bujosa Brun}
+\date{\today}
+\title{Módulo prop.py para generar bancos de preguntas de opción múltiple}
+\begin{document}
+
+\tableofcontents
+
+\part{Aparato lógico}
+\label{sec:org59c8a85}
+
+\chapter{Estructura de la librería \texttt{prop.py}}
+\label{sec:orgf2bd270}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+<<Aparato lógico de la librería>>
+<<Aparato auxiliar para la creación de problemas de opción múltiple>>
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+<<Definición de la clase Proposicion>>
+<<Definición de la subclase v>>
+<<Definición de alguno y unoDe>>
+<<Definición de noDerivable>>
+<<Definición de la función span>>
+<<Definición de la función extension>>
+<<Definición de la función refuta>>
+<<Definición de la función test>>
+\end{minted}
+
+El \texttt{<{}<{}Aparato auxiliar para la creación de problemas de opción múltiple>{}>{}}
+se desarrolla en el capítulo siguiente.
+\chapter{Clase \texttt{Proposicion} y su subclase \texttt{v} (proposición atómica)}
+\label{sec:orgd9cf297}
+
+Las proposiciones son expresiones formadas con números, strings y los símbolos
+\begin{center}
+\texttt{\&},\quad \texttt{|},\quad \texttt{-},\quad  \texttt{v( )},\quad \texttt{>{}>{}},\quad \texttt{**},\quad \texttt{alguno}\quad y\quad  \texttt{unoDe} 
+\end{center}
+construidas según las siguientes reglas:
+\begin{enumerate}
+\item Si \texttt{D} es un número o un string (cadena de caracteres) entonces \texttt{v(D)} es una
+subclase de \texttt{Proposicion} que denominaremos \emph{``variable proposicional''} o \emph{``proposición atómica''}.
+\item Si \texttt{P}, \texttt{Q} y \texttt{R} son proposiciones también lo son:
+\begin{description}
+\item[{\texttt{P\&Q}}] (conjunción)
+\item[{\texttt{P|Q}}] (disyunción)
+\item[{\texttt{-P}}] (negación)
+\item[{\texttt{P>{}>{}Q}}] (implicación)
+\item[{\texttt{P**Q}}] (equivalencia, es decir: \emph{si y solo si}).
+\end{description}
+
+Para facilitar la elaboración expresiones, también incluimos dos operadores lógico menos habituales: 
+\begin{description}
+\item[{\texttt{alguno(P,Q,R)}}] significa que alguna de las proposiciones de la lista es verdadera y
+\item[{\texttt{unoDe(P,Q,R)}}] significa que solo una de las proposiciones de la lista es verdadera.
+\end{description}
+\end{enumerate}
+
+Ejemplo de proposición: ``llueve o no llueve''
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+v('llueve') | -v('llueve')
+\end{minted}
+
+\phantomsection
+\label{}
+\begin{verbatim}
+v('llueve') | -v('llueve')
+\end{verbatim}
+
+
+Necesitamos que las proposiciones del tipo \texttt{v(D)} sean \href{https://docs.python.org/3/glossary.html\#term-hashable}{\emph{``hash-eables''}}, para poder ser utilizadas como claves en un diccionario. 
+Para ello necesitamos los métodos \texttt{\_\_hash\_\_} y \texttt{\_\_eq\_\_}. 
+
+Definamos la clase \texttt{Proposicion}
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+class Proposicion:
+    def __init__(self,data):
+        self.data = data
+        
+    def __hash__(self):
+        return hash(self.data)
+    
+    def __eq__(self, another):
+        return hasattr(another, 'data') and self.data == another.data
+
+    <<Operadores lógicos de la clase Proposicion>>
+    <<Método de representación de la clase Proposicion>>    
+\end{minted}
+\begin{enumerate}
+\item Las operaciones: conjunción, disyunción, negación, implicación y equivalencia.
+\label{sec:orge1e7694}
+
+Definamos como métodos dentro de la clase \texttt{Proposicion} los cinco operadores lógicos habituales. 
+Primero aquellos que usan \emph{``métodos mágicos''}, es decir, aquellos que tiene asociado un símbolo para llamar a las operaciones:
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def __and__(self,other):
+    return Proposicion(['and', self, other])
+def __or__(self,other):
+    return Proposicion(['or', self, other])
+def __neg__(self):
+    return Proposicion(['not', self])
+def __rshift__(self,other):
+    return Proposicion(['implica', self, other])
+def __pow__(self,other):
+    return Proposicion(['equivale', self, other])
+    
+\end{minted}
+\end{enumerate}
+\item Las operaciones: \texttt{unoDe} y \texttt{alguno}.
+\label{sec:orgdc98711}
+
+Para las dos siguientes operaciones\footnote{no habituales, aunque convenientes pues facilitan la expresión de algunas proposiciones} no usamos ningún \emph{``método mágico''}. 
+Así que definirlas dentro de la clase nos obligaría a una incómoda escritura del tipo: \texttt{Proposicion.alguno(P1,P2,P3)} o \texttt{Proposicion.unoDe(P1,P2,P3)}.
+Para evitarlo, las definimos fuera de la clase; así podremos escribir sencillamente \texttt{alguno(P1,P2,P3)} y \texttt{unoDe(P1,P2,P3)}.
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def alguno(X,*args):
+    return Proposicion(['alguno', X] + [a for a in args])
+def unoDe(X,*args):
+    return Proposicion(['unoDe',  X] + [a for a in args])
+
+\end{minted}
+\item La operación: \texttt{noDerivable}.
+\label{sec:orgd6741c9}
+
+Esta función no es una operación lógica (como si lo son las anteriores). 
+Es un ``añadido'' cuya motivación es la siguiente:
+
+El esquema típico de una pregunta es: el enunciado asume que las premisas \texttt{E1}, \texttt{E2},\dots{} \texttt{En} son ciertas. 
+Y se puede puede preguntar si \texttt{P} es consecuencia lógica de las premisas. 
+Si lo es, \texttt{P} es \texttt{True} (es decir, \(\texttt{premisas}\Rightarrow\texttt{P}\)). 
+Negar esto no es decir que \texttt{-P} es consecuencia de las premisas, sino que \texttt{P} no es derivable de las premisas (es decir, \(\texttt{premisas}\not\Rightarrow\texttt{P}\)). 
+Así que añadimos la operación \texttt{noDerivable}. 
+Esto nos permite, por ejemplo, que aunque para algunos enunciados se pueda preguntar si una matriz es diagonalizable, para otros evitemos la pregunta si no es deducible del enunciado.
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def noDerivable(X):
+    return Proposicion(['noDerivable', X])
+
+\end{minted}
+\end{enumerate}
+\section{La subclase \texttt{v} para proposiciones atómicas (i.e., para variables proposicionales)}
+\label{sec:orge72dab0}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+class v(Proposicion):
+    def __init__(self, data):
+        super().__init__(data)
+  
+\end{minted}
+\chapter{Valoración de proposiciones}
+\label{sec:org28e34ee}
+
+Una valoración es una función \texttt{T} que va del conjunto de proposiciones al conjunto \texttt{\{True,False\}} (es decir, a cada proposición le asigna el valor verdadero o el valor falso) y que verifica las siguientes propiedades: si \texttt{P} y \texttt{Q} son proposiciones entonces
+
+\begin{enumerate}
+\item \texttt{T(P \& Q) = True}\quad únicamente en el caso de que\quad \texttt{T(P) = True}\quad y\quad \texttt{T(Q) = True}.
+\item \texttt{T(P | Q) = False}\quad únicamente en el caso de que\quad \texttt{T(P) = False}\quad y\quad \texttt{T(Q) = False}.
+\item \texttt{T(-P) = True}\quad únicamente en el caso de que\quad \texttt{T(P) = False}.
+\end{enumerate}
+Por tanto:  
+\fbox{\texttt{T(P \& Q) = T(P) \& T(Q)}},\qquad  
+\fbox{\texttt{T(P | Q) = T(P) | T(Q)}}\quad y \quad 
+\fbox{\texttt{T(-P) = not T(P)}}.
+\begin{enumerate}
+\item \texttt{T(P >{}>{} Q) = False}\quad únicamente en el caso en que\quad \texttt{T(P) = True}\quad y\quad \texttt{T(Q) = False}.
+\item \texttt{T(P ** Q) = True}\quad únicamente en el caso en que\quad \texttt{T(P) = T(Q)}.
+\end{enumerate}
+Por tanto\quad 
+\fbox{\texttt{T(P >> Q) = T(-P | Q)}}
+\quad y\quad 
+\fbox{\texttt{T(P ** Q) = T( (P>>Q) \& (Q>>P) )}}.
+
+Y si \texttt{A1,...An} son \texttt{n} proposiciones, entonces
+\begin{enumerate}
+\item \texttt{alguno(A1,...,An)} es \texttt{True}\quad si y solo si\quad \texttt{A1 | alguno(A2,...,An)} es \texttt{True},
+\item \texttt{unoDe(A1,...,An)} es \texttt{True}\quad si y solo si\quad \texttt{(A1 \& -alguno(A2,...,An) | (-A1 \& unoDe(A2,...,An))} es \texttt{True};
+\end{enumerate}
+Por tanto
+\begin{center}
+\fbox{\texttt{T( alguno(A1,...,An) ) = T( A1 | alguno(A2,...,An) )}}
+\end{center}
+y
+\begin{center}
+\fbox{\texttt{T( unoDe(A1,...,An) ) = T( (A1 \& -alguno(A2,...,An)) | (-A1 \& unoDe(A2,...,An)) )}}.
+\end{center}
+Cualquier función \texttt{F} que vaya del conjunto de proposicionales atómicas (es decir, del tipo \texttt{v('algo')}) al conjunto \texttt{\{True,False\}} 
+se puede extender al resto proposiciones\footnote{En la función \texttt{span} de Python hemos elegido el criterio de que a toda proposición \texttt{Prop} no incluida explícitamente en el diccionario \texttt{F} le asignamos el valor \texttt{False} para así completar el dominio de las proposiciones atómicas. 
+Esta decisión ha sido completamente arbitraria, y se ha incluido para que efectivamente el dominio de \texttt{span} incluya todas las proposiciones atómicas (i.e., variables proposicionales). 
+En cualquier caso \texttt{span} se ha programado a modo de ilustración, pues no la emplearemos para nada.}
+formando una valoración \texttt{T=span(F)}, aplicando las reglas de arriba. 
+Dicha extensión es única.
+
+Vamos a implementar como funciones los diccionarios de Python, pues los diccionarios son una colección de pares \texttt{'Etiqueta':valor} donde a cada etiqueta solo se le asigna un valor único. 
+Por ejemplo, si definimos el siguiente diccionario \texttt{\{'a':1 , 'a':0 , 'b':2}\}, obtenemos un diccionario con dos elementos, donde a \texttt{'a'} se le a asignado solo uno de los dos valores introducidos (en concreto el último).
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+print( {'a':1 , 'a':0 , 'b':2} )
+\end{minted}
+
+\phantomsection
+\label{}
+\begin{verbatim}
+{'a': 0, 'b': 2}
+\end{verbatim}
+\section{Función \texttt{span}}
+\label{sec:orgf9aaf21}
+
+Función \texttt{span(F, Prop)} indica si \texttt{Prop} es \texttt{True} o es \texttt{False} a partir de la función parcial \texttt{F}.
+\begin{itemize}
+\item \texttt{F}: es un diccionario (función parcial) que asigna valores \texttt{True} o \texttt{False} a varias proposiciones atómicas.
+\item \texttt{Prop}: es una \texttt{Proposicion} .
+\end{itemize}
+Así obtenemos los siguientes resultados lógicos:
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+F = { v('llueve'):True }
+span(F, v('llueve') >> -v('llueve') )
+\end{minted}
+
+\phantomsection
+\label{}
+\begin{verbatim}
+False
+\end{verbatim}
+
+y por otra parte
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+span(F, -v('llueve') >> v('llueve') )
+\end{minted}
+
+\phantomsection
+\label{}
+\begin{verbatim}
+True
+\end{verbatim}
+\subsection{Implementación}
+\label{sec:org448f3e3}
+
+Si una proposición \texttt{Prop} (de tipo atómico) está en la función parcial \texttt{F} y además es verdadera, \texttt{span} devuelve \texttt{True}. 
+En caso contrario devuelve \texttt{False} (tanto si \texttt{Prop} no está en \texttt{F} como si lo está pero es \texttt{False}). 
+Si \texttt{Prop} no es de tipo atómico, entonces se aplican las reglas para reducir \texttt{Prop} a proposiciones de tamaño más pequeño.
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def span(F, Prop):    
+    if type(Prop) == type(v('')):
+        return (Prop in F) and F[Prop] 
+    <<Aplicación de las reglas para reducir el tamaño de Prop>>
+
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+elif Prop.data[0] == 'and':
+    return span(F, Prop.data[1]) and span(F, Prop.data[2])
+
+elif Prop.data[0] == 'or':
+    return span(F, Prop.data[1]) or span(F, Prop.data[2])
+
+elif Prop.data[0] == 'not':
+    return not span(F, Prop.data[1])
+    
+elif Prop.data[0] == 'implica':
+    return (not span(F, Prop.data[1])) or span(F, Prop.data[2]) 
+    
+elif Prop.data[0] == 'equivale':
+    return span(F, Prop.data[1]) == span(F, Prop.data[2]) 
+
+elif Prop.data[0] == 'alguno':
+    return span(F,Prop.data[1]) or span(F,alguno(Prop.data[2:])) if len(Prop.data)>2\
+      else span(F,Prop.data[1])
+
+elif Prop.data[0] == 'unoDe':
+    A = Prop.data[1]
+    if len(Prop.data)==2:
+        return span(F, A)
+    else:
+        B = Proposicion(['alguno'] + Prop.data[2:])
+        C = Proposicion(['unoDe']  + Prop.data[2:])
+        return span(F, (A&-B) | (-A&C) ) 
+\end{minted}
+\chapter{Función  \texttt{extension} que extiende una función parcial}
+\label{sec:org8c4d1fb}
+
+Ahora queremos definir una función de Python (que denominamos \texttt{extension}) que, 
+dadas una lista \texttt{objetivo} y un diccionario con \texttt{valores}, 
+para una colección de proposiciones atómicas haga crecer (extienda) el diccionario \texttt{valores} con nuevas proposiciones atómicas, y sus correspondientes valores, 
+necesarios para que se cumplan los pares contenidos en la lista \texttt{objetivo};
+o bien que devuelva el diccionario vacío \texttt{\{\}} en caso de que sea imposible hacer cumplir dicha lista \texttt{objetivo}.
+
+La diferencia entre la lista \texttt{objetivo} y los \texttt{valores} es que en \texttt{objetivo} se asignan valores a proposiciones (arbitrarias) pero en \texttt{valores} solo se asignan valores a \emph{proposiciones atómicas}.
+
+El diccionario extendido es un \emph{modelo lógico} en el que se cumplen la lista \texttt{objetivo} y la función parcial \texttt{valores}. 
+Ello no quiere decir que no puedan existir otros modelos que consigan lo mismo.
+
+Ejemplo:
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+print( extension( [ (v('llueve') >> -v('llueve') , True) ], {v('basilisco') : True}) )
+\end{minted}
+
+\phantomsection
+\label{}
+\begin{verbatim}
+{v('basilisco'): True, v('llueve'): False}
+\end{verbatim}
+
+
+
+Ejemplo:
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+print( extension( [ (v('llueve'),True), (-v('llueve'),True)], {v('basilisco') : True}) )
+\end{minted}
+
+\phantomsection
+\label{}
+\begin{verbatim}
+{}
+\end{verbatim}
+\section{Implementación de la función  \texttt{extension}}
+\label{sec:orgc2e6e09}
+
+Función \texttt{extension(objetivo, valores, premisas=[])}
+
+\begin{itemize}
+\item \texttt{objetivo}: es una lista de pares \texttt{(P,VF)} donde \texttt{P} es una proposición y \texttt{VF} es \texttt{True} o \texttt{False}
+
+\item \texttt{valores}: es un diccionario (función parcial) que asigna valores \texttt{True} o \texttt{False} a variables proposicionales
+
+\item \texttt{premisas}: es la lista de premisas a partir de la cual se deduce si una proposición es derivable o no (es decir, es solo para usar la operación \texttt{noDerivable})
+\end{itemize}
+
+La función \texttt{extension} tiene dos posibles salidas: 
+o bien devuelve un modelo lógico \texttt{M} que extiende a \texttt{valores} de tal forma que \texttt{span(M,P)=VF} para cada par \texttt{(P,VF)} de \texttt{objetivo}, 
+o el diccionario vacío \texttt{\{\}} si no existe tal modelo \texttt{M}. 
+Es decir,
+busca una forma de dar valores a las proposiciones atómicas de modo que todas las proposiciones contenidas en el \texttt{objetivo} alcancen el valor deseado.
+\subsection{Implementación}
+\label{sec:org525a4bc}
+
+Si la lista \texttt{objetivo} no tiene pares, con la propia función \texttt{valores}, hemos acabado.
+
+La definición de la función \texttt{extension} es recursiva. 
+La mecánica es la siguiente: se sustituye el proposición del primer objetivo por proposiciones de menor tamaño\footnote{Una lista de símbolos más corta}, y entonces se llama a si misma. 
+Este procedimiento reduce las proposiciones hasta obtener proposiciones atómicas.
+
+Así pues, llamamos \texttt{Obj} al primer objetivo de la lista, \texttt{P} a la correspondiente proposición y \texttt{VF} a su valor objetivo. 
+Por tanto \texttt{Obj = (P,VF)} es el primer par de la lista \texttt{objetivo}.
+
+Comprobamos que \texttt{P.data} es una \texttt{list} y tratamos los distintos casos de reducción de predicado.
+
+\label{Definición de la función extension}
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def extension(objetivo, valores, premisas=[]):
+    if objetivo == []:       
+        return valores
+    
+    Obj = objetivo[0]         
+    P   = Obj[0]
+    VF  = Obj[1] 
+    if isinstance(P.data,list):
+        <<Reducción de una proposición de tipo "not">>
+        <<Reducción de una proposición de tipo "and">>
+        <<Reducción de una proposición de tipo "or">>
+        <<Reducción de una proposición de tipo "implica">>
+        <<Reducción de una proposición de tipo "equivale">>
+        <<Reducción de una proposición de tipo "alguno">>                  
+        <<Reducción de una proposición de tipo "unoDe">>
+        <<Proposición de tipo "noDerivable">>
+    <<Proposición atómica v>>
+\end{minted}
+\section{Reducción de proposiciones NO atómicas}
+\label{sec:org5491645}
+
+\begin{enumerate}
+\item Reducción de una proposición de tipo ``not''.
+\label{sec:orgfef64b5}
+
+En el caso de que \texttt{Obj = (-A,True)}, nos vale la misma función que obtenemos si remplazamos \texttt{Obj} por \texttt{(A,False)}. 
+Y en el caso de que \texttt{Obj = (-A,False)}, nos vale la misma función si remplazamos \texttt{Obj} por \texttt{(A,True)}.
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+if P.data[0] == 'not' :   
+    A = P.data[1]
+    return extension( [(A, not VF)] + objetivo[1:], valores, premisas )
+\end{minted}
+\item Reducción de una proposición de tipo ``and''.
+\label{sec:org468e297}
+
+En el caso de que \texttt{Obj=(A \& B, True)}, nos vale la misma función que obtenemos si remplazamos \texttt{Obj} por \texttt{(A,True), (B,True)}. 
+Y en el caso de que \texttt{Obj=(A \& B, False)}, vale tanto la función que obtenemos de remplazar \texttt{Obj} por \texttt{(A,False)} como la que obtenemos al remplazar \texttt{Obj} por \texttt{(B,False)}.
+
+Si la primera alternativa resulta en una extensión vacía se devuelve la segunda.
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+elif P.data[0] == 'and':
+    A = P.data[1]
+    B = P.data[2]
+    if(VF):
+        return extension([ (A,True), (B,True) ] + objetivo[1:], valores, premisas)
+    else:
+        r = extension( [(A,False)] + objetivo[1:],valores,premisas)
+        return extension([(B,False)]+objetivo[1:],valores,premisas) if not r else r
+
+\end{minted}
+\item Reducción de una proposición de tipo ``or''.
+\label{sec:org7f40671}
+
+En el caso de que \texttt{Obj=( A|B, False)}, nos vale la misma función que obtenemos si remplazamos \texttt{Obj} por \texttt{(A,False), (B,False)}.
+Y en el caso de que \texttt{Obj=( A\&B, True)}, vale tanto la función que obtenemos de remplazar \texttt{Obj} por \texttt{(A,True)} como la que obtenemos al remplazar \texttt{Obj} por \texttt{(B,True)}.
+
+Si la primera alternativa resulta en una extensión vacía se devuelve la segunda.
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+elif P.data[0] == "or":
+    A = P.data[1]
+    B = P.data[2]
+    if not VF:
+        return extension([(A,False),(B,False)] + objetivo[1:], valores, premisas)
+    else:
+        r = extension([(A,True)] + objetivo[1:], valores, premisas)
+        return extension([(B,True)]+objetivo[1:],valores, premisas) if not r else r
+
+\end{minted}
+\item Reducción de una proposición de tipo ``implica''.
+\label{sec:orgb2176da}
+
+En el caso de que \texttt{Obj=( A>{}>{}B, VF)}, nos vale la misma función que obtenemos si emplazamos \texttt{Obj} por \texttt{( -A|B, VF)}.
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+elif P.data[0] == "implica":
+    A = P.data[1]
+    B = P.data[2]
+    return extension([ ( -A|B, VF) ] + objetivo[1:], valores, premisas)
+\end{minted}
+\item Reducción de una proposición de tipo ``equivale''.
+\label{sec:org049008a}
+
+En el caso de que \texttt{Obj=( A**B, VF)}, nos vale la misma función que obtenemos si remplazamos \texttt{Obj} por \texttt{( (A>{}>{}B) \& (B>{}>{}A), VF)}.
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+elif P.data[0] == "equivale":
+    A = P.data[1]
+    B = P.data[2]
+    return extension([( (A>>B) & (B>>A), VF)] + objetivo[1:], valores, premisas)
+\end{minted}
+\item Reducción de una proposición de tipo ``alguno''.
+\label{sec:orgdfb37ee}
+
+En caso de que \texttt{Obj = (alguno(A), VF)} (i.e., la lista de alternativas solo contiene la proposición \texttt{A}) nos vale la misma función que \texttt{(A, VF)}. 
+Si por el contrario \texttt{Obj = (alguno(A1,...An) ,VF)}, con \texttt{n>1}, nos vale la misma función que obtenemos si remplazamos \texttt{Obj} por \texttt{( A1|alguno(A2,...,An), VF)} (i.e., la primera o alguna de las demás).
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+elif P.data[0] == "alguno":
+    A = P.data[1]
+    if len(P.data)==2:
+        return extension([(A,VF)] + objetivo[1:], valores, premisas)
+    else:
+        B = Proposicion(["alguno"] + P.data[2:])
+        return extension([( A|B, VF)] + objetivo[1:], valores, premisas)
+\end{minted}
+\item Reducción de una proposición de tipo ``unoDe''.
+\label{sec:org6956f75}
+
+En caso de que \texttt{Obj=(unoDe(A), VF)} (i.e., la lista de alternativas solo contiene la proposición \texttt{A}) nos vale la misma función que \texttt{(A,VF)}. 
+Si por el contrario \texttt{Obj=(unoDe(A1,...An), VF)}, con \texttt{n>1}, nos vale la misma función que obtenemos si remplazamos \texttt{Obj} por \texttt{( A1 \& -alguno(A2,...An) | -A1 \& unoDe(A2,...,An), VF)}. 
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+elif P.data[0] == "unoDe":
+    A = P.data[1]
+    if len(P.data)==2:
+        return extension([(A,VF)] + objetivo[1:], valores, premisas)
+    else:
+        B = Proposicion(["alguno"] + P.data[2:])
+        C = Proposicion(["unoDe"] + P.data[2:])
+        return extension([( (A&-B) | (-A&C), VF)] + objetivo[1:], valores, premisas)
+\end{minted}
+\end{enumerate}
+\section{Proposición no derivable de un conjunto de \texttt{premisas}}
+\label{sec:org03e2bc0}
+
+La función \texttt{extension} tiene un tercer argumento (\texttt{premisas}) que es un ``añadido'' para decidir si una proposición es \texttt{noDerivable} de la lista de \texttt{premisas}.
+
+Derivable significa que la proposición es consecuencia lógica de las \texttt{premisas}, por consiguiente es imposible que sea falso si las \texttt{premisas} son ciertas.
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+elif P.data[0] == "noDerivable":
+    A = P.data[1]
+    valoresExt = valores.copy() 
+    valoresExt[v(repr(P))] = VF
+                     
+    derivable = not extension([(A,False)] + premisas, {}, premisas)
+                     
+    return extension(objetivo[1:],valores2,premisas) if not derivable == VF else {}
+                     
+\end{minted}
+\section{\ldots{} cuando llegamos a una proposición atómica (o \emph{variable proposicional})}
+\label{sec:org1a38cca}
+
+En el caso de que \texttt{Obj = (v(D), VF)}, es cuando el algoritmo recursivo pasará a intentar un nuevo objetivo (extendiendo el diccionario \texttt{valores} si fuera necesario), o bien parará por ser el par objetivo \texttt{(v(D), VF)} imposible.
+
+Primero se comprueba si el par \texttt{(v(D), VF)} ya estaba en el diccionario \texttt{valores}, es decir, si \texttt{valores} contiene la proposición atómica \texttt{v(D)} y con el valor \texttt{VF}. 
+En tal caso, se ``salta'' al siguiente objetivo (es decir se llama al \texttt{extension} con el mismo diccionario \texttt{valores} pero quitando de la lista \texttt{objetivo} el primer elemento. 
+Si \texttt{v(D)} pertenece al diccionario \texttt{valores} pero \textbf{con un valor distinto} a \texttt{VF}, quiere decir que el objetivo es imposible de alcanzar, por lo que se devuelve un diccionario vacío, y la recursión ha terminado.
+
+Si \texttt{P} es una proposición atómica que no estaba en el diccionario \texttt{valores}, entonces creamos un nuevo diccionario extendido (\texttt{valoresExt}) que incluya \texttt{P} y su valor \texttt{VF}; y entonces llamamos a \texttt{extension} pero quitando el primer objetivo de la lista y usando un diccionario ``extendido'' (\texttt{valoresExt}). 
+Para evitar los efectos colaterales de modificar un diccionario, modificamos una copia
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+else:      
+    if P in valores:
+        return extension(objetivo[1:], valores, premisas) if valores[P]==VF else {}
+    else:
+        valoresExt    = valores.copy() 
+        valoresExt[P] = VF          
+        return extension(objetivo[1:], valoresExt, premisas)
+\end{minted}
+\chapter{Función que \texttt{refuta} una proposición a partir de un conjunto de \texttt{premisas}}
+\label{sec:orgde36f73}
+
+Refutar una proposición, consiste en asignar un valor a cada variable proposicional (cada proposición atómica), de tal modo que el resultado sea falso.
+
+La función \texttt{refuta} construye un modelo \texttt{M} (asignación de valores a las proposiciones atómicas) de forma que \texttt{span(M,P)=False} y \texttt{span(M,h)=True} para todo \texttt{h} en \texttt{premisas}.
+
+Si esto no es posible refutar \texttt{P} a partir de las \texttt{premisas}, entonces la función \texttt{refuta} devuelve un modelo (un diccionario) vacío; esto quiere decir que la proposición \texttt{P} es irrefutable, es decir, \(\text{=premisas=}\Rightarrow\text{=P=}\).  
+Es decir, si se refuta es que no es derivable de las premisas (no es consecuencia lógica de las premisas).
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def refuta(P, premisas=[]):
+    h=[(Q,True) for Q in premisas]
+    return extension([(P,False)]+h, {}, h) 
+
+\end{minted}
+\chapter{Función  \texttt{test}}
+\label{sec:orga444d3a}
+
+Función \texttt{test(P,premisas)}
+
+\begin{itemize}
+\item \texttt{P}: es una proposición o cualquiera de los valores \texttt{True}, \texttt{False}.
+\item \texttt{premisas}: es una lista de proposiciones
+\end{itemize}
+
+La función \texttt{test} se utiliza tanto para saber si se da una precondición, como para saber el resultado correcto de una cuestión.
+
+En el caso de que \texttt{P} sea una proposición, sólo devuelve \texttt{True} si es imposible refutarlo a partir de las \texttt{premisas}, es decir, es imposible que \texttt{P} sea falso si las \texttt{premisas} son verdad (\texttt{premisas} \(\Rightarrow\) \texttt{P}, i.e., \texttt{P} es derivable).
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def test(P,premisas=[]):
+    if P == True:
+        return True
+    if P == False:
+        return False
+    else:
+        return True if not refuta(P, premisas) else False
+
+\end{minted}
+\chapter{Representación de la clase \texttt{Proposicion}}
+\label{sec:org8ac50ee}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def __repr__(self):
+    if isinstance(self.data,list):
+        if self.data[0] == "and":
+            return repr(self.data[1]) + " & "+ repr(self.data[2])
+        if self.data[0] == "or":
+            return repr(self.data[1]) + " | "+ repr(self.data[2])
+        if self.data[0] == "not":
+            return "-" + repr(self.data[1])
+        if self.data[0] == "implica":
+            return repr(self.data[1]) + " >> "+ repr(self.data[2])
+        if self.data[0] == "equivale":
+            return repr(self.data[1]) + " ** "+ repr(self.data[2])
+        if self.data[0] == "unoDe":
+            return "unoDe("+','.join([repr(x) for x in self.data[1:]]) +")"
+        if self.data[0] == "noDerivable":
+            return "noDerivable("+repr(self.data[1]) +")"            
+
+    else:
+        return 'v('+repr(self.data)+')'    
+\end{minted}
+\part{Creación de preguntas de opción múltiple}
+\label{sec:org5ba94c4}
+
+\chapter{Estructura del aparato auxiliar de la librería \texttt{prop.py}}
+\label{sec:orgdf2fea3}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+<<Definición de la clase Marcador>>
+<<Definición de la clase Supuesto>>
+<<Definición de la clase Cuestion>>
+<<Definición de la clase ProblemaTipo>>
+<<Definición de la clase ProblemaTipoProfe>>
+<<Definición de la clase ProblemaVF>>
+\end{minted}
+\chapter{Clase \texttt{Marcador}}
+\label{sec:orgf840024}
+
+Usaremos la clase \texttt{Marcador} como una herramienta auxiliar para construir el árbol con todas las combinaciones posibles entre una conjunto de enunciados y un conjunto de cuestiones. 
+Posteriormente se descartarán de dicho árbol las combinaciones de enunciados y cuestiones que no tengan solución.
+
+Clase \texttt{Marcador}
+\begin{itemize}
+\item \texttt{objetivo} es una lista de números naturales mayores que cero
+\end{itemize}
+
+La clase \texttt{Marcador} es un iterador. Si \texttt{objetivo=[n\_1,...,n\_k]} genera todas las listas de la forma \texttt{[m\_1,...,m\_k]} tales que cada \texttt{m\_i} es un número natural menor que \texttt{n\_i}
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+for i in Marcador([2,3,1]):
+    print(i)
+\end{minted}
+
+\phantomsection
+\label{}
+\begin{verbatim}
+[0, 0, 0]
+[0, 1, 0]
+[0, 2, 0]
+[1, 0, 0]
+[1, 1, 0]
+[1, 2, 0]
+\end{verbatim}
+\section{Implementación}
+\label{sec:org0496d78}
+
+El atributo \texttt{self.data} es la lista de números que hemos dado como argumento. En el ejemplo anterior, \texttt{[2,3,1]}.
+
+Para construir un iterador necesitamos los métodos \texttt{\_\_iter\_\_} y \texttt{\_\_next\_\_}.
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+class Marcador:
+    def __init__(self, data):
+        self.data = data
+    def __iter__(self):
+        self.p = [0 for x in self.data]
+        return self                                
+    def __next__(self):
+        def Siguiente(x,y):
+            if x == [] :
+                return []    
+            s = Siguiente(x[1:],y[1:])
+            if s == []:
+                if x[0]+1 == y[0]:
+                    return []
+                else:
+                    return [x[0]+1] + [0 for i in x[1:]]
+            else:
+                return [x[0]] + s
+        if self.p == []:
+            raise StopIteration                         
+        n = self.p
+        self.p = Siguiente(self.p, self.data)
+        return n
+
+\end{minted}
+
+El atributo \texttt{self.p} contiene la lista que entregará \texttt{\_\_next\_\_} en la siguiente invocación al método; y el método \texttt{\_\_iter\_\_} genera la semilla de dicha lista, en particular dicha semilla es una lista de ceros.
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def __iter__(self):
+    self.p = [0 for x in self.data]
+    return self
+\end{minted}
+
+\texttt{\_\_next\_\_} devuelve \texttt{self.p} en su estado actual (\texttt{n}), y coloca en \texttt{self.p} la lista siguiente. Si \texttt{self.p} es vacía detiene la iteración.
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def __next__(self):
+    <<Definición de la función local Siguiente>>
+    if self.p == []:
+        raise StopIteration                         
+    n = self.p
+    self.p = Siguiente(self.p, self.data)
+    return n
+\end{minted}
+
+Dentro del método \texttt{\_\_next\_\_} definimos de manera recursiva la función auxiliar local \texttt{S}, que calcula la lista siguiente.
+\subsection{Función auxiliar \texttt{Siguiente (x, y)}}
+\label{sec:org8f15c78}
+
+\begin{itemize}
+\item \texttt{x}: lista de números naturales \texttt{[m\_1...m\_r]} tales   que \texttt{m\_i < n\_i} (es la lista de la que queremos calcular la siguiente).
+\item \texttt{y}: lista de números naturales \texttt{[n\_1...n\_r]} mayores que cero (lista de topes).
+\end{itemize}
+Devuelve \texttt{[k\_1...k\_r]} la siguiente lista a \texttt{[m\_1...m\_r]} (según el orden lexicográfico) tal que \texttt{k\_i<n\_i}. 
+En caso de no existir tal lista devuelve \texttt{[]}.
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def Siguiente(x,y):
+    if x == [] :
+        return []    
+    s = Siguiente(x[1:],y[1:])
+    if s == []:
+        if x[0]+1 == y[0]:
+            return []
+        else:
+            return [x[0]+1] + [0 for i in x[1:]]
+    else:
+        return [x[0]] + s
+\end{minted}
+\chapter{Las clases \texttt{Supuesto}, \texttt{Cuestion}, \texttt{ProblemaTipo} y \texttt{ProblemaTipoProfe}}
+\label{sec:orgcf27e84}
+
+\section{Clase \texttt{Supuesto(enunciado, semantica, precond)}}
+\label{sec:org9d3143c}
+
+Clase \texttt{Supuesto(enunciado, semantica, precond)}
+
+Es un constructor que sirve para almacenar tres aspectos (atributos) del supuesto de un problema.
+
+\begin{description}
+\item[{\texttt{enunciado}}] string que presenta la supuesto en lenguaje humano.
+
+\item[{\texttt{semantica}}] proposición que traduce parcialmente el significado lógico del \texttt{enunciado} (contiene lo necesario para deducir las respuestas).
+
+\item[{\texttt{precond}}] es una proposición o bien cualquiera de los valores  \texttt{True}, \texttt{False}. 
+El \texttt{Supuesto} será incluido en el problema solo si la evaluación de \texttt{precond} es \texttt{True}.
+\end{description}
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+class Supuesto:
+    def __init__(self,enunciado, semantica, precond=True):
+        self.e = enunciado
+        self.s = semantica
+        self.p = precond
+\end{minted}
+\section{Clase \texttt{Cuestion(enunciado, semantica, precond)}}
+\label{sec:orgba007c6}
+
+Clase \texttt{Cuestion(enunciado, semantica, precond)}
+
+Es un constructor que sirve para almacenar tres aspectos (atributos) de una cuestión de un problema.
+
+\begin{description}
+\item[{\texttt{enunciado}}] string que presenta la cuestión en lenguaje humano.
+
+\item[{\texttt{semantica}}] proposición \texttt{P} tal que \texttt{test(P, semántica del conjunto de supuestos)} devuelve la respuesta correcta.
+
+\item[{\texttt{precond}}] es una proposición o bien cualquiera de los valores \texttt{True}, \texttt{False}. 
+La \texttt{Cuestion} será incluida en el problema solo si la evaluación de \texttt{precond} es \texttt{True}.
+\end{description}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+class Cuestion:
+    def __init__(self, enunciado, semantica, precond=True, exp=""):
+        self.e = enunciado
+        self.s = semantica
+        self.p = precond
+        self.x = exp
+\end{minted}
+\section{Clase \texttt{ProblemaTipo}}
+\label{sec:org786288a}
+
+Clase \texttt{ProblemaTipo (supuestos\_y\_cuestiones)}
+\begin{description}
+\item[{\texttt{supuestos\_y\_cuestiones}}] es una lista de listas de strings, \texttt{Supuesto}-s, o \texttt{Cuestion}-es.
+\end{description}
+Cada lista representa un conjunto de opciones excluyentes. 
+Para mayor comodidad, en el caso de que una de esas listas consista en un único objeto (una única opción), también se permite escribir directamente el objeto sin encerrarlo en una lista, es decir, la lista \texttt{supuestos\_y\_cuestiones} también admite objetos de tipo: string, \texttt{Supuesto} o \texttt{Cuestion}.
+\subsection{Implementación}
+\label{sec:org8e077ec}
+
+La clase \texttt{ProblemaTipo} es un iterador que genera todas las versiones aceptables de un problema. 
+Cada variante resulta de tomar una de las opciones de cada una de las listas en \texttt{supuestos\_y\_cuestiones}, pero si la \texttt{precond}-ición de alguna de las opciones elegidas es \texttt{False} la correspondiente variante del problema es rechazada.
+
+\begin{itemize}
+\item El atributo \texttt{self.e} contiene la lista \texttt{supuestos\_y\_cuestiones}. 
+ Cada elemento de \texttt{supuestos\_y\_cuestiones} es a su vez una lista de opciones (excluyentes) correspondiente a cada componente (cada parte) del texto del problema.
+La combinación de distintas opciones crea el texto completo de una variante del problema.
+\end{itemize}
+
+El método \texttt{\_\_iter\_\_} inicializa el iterador. 
+El método \texttt{\_\_next\_\_} obtiene la siguiente variante del problema, pero asegurándose de que las precondiciones son satisfechas (si no la variante es desechada).
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+class ProblemaTipo:
+    def __init__(self, supuestos_y_cuestiones):
+        self.e = supuestos_y_cuestiones
+
+    def __iter__(self):
+        self.l    = [x if isinstance(x,list) else [x] for x in self.e]
+        self.long = len(self.l)
+        self.i    = iter(Marcador([len(x) for x in self.l]))
+        self.c    = 0
+        return self
+    def __next__(self):
+        
+        self.c += 1
+        while True:
+            try:
+                variante = next(self.i)
+            except StopIteration:
+                raise StopIteration
+    
+            enunciado     = ""
+            hipotesis     = []
+            cuestiones    = []
+                         
+            for n in range(self.long+1):
+                if n == self.long:
+                    return (str(self.c), enunciado, cuestiones)
+        
+                componente = self.l[n][variante[n]]
+                if isinstance(componente, str):
+                    enunciado = enunciado + componente
+                    
+                elif isinstance(componente, Supuesto):
+                    if test(componente.p, hipotesis):
+                        enunciado = enunciado +  componente.e
+                        hipotesis = hipotesis + [componente.s]
+                    else:
+                        print('\n Supuesto: '   + str(componente.e) \
+                            + ' rechazado por ' + str(componente.p) + '\n')
+                        break
+                    
+                elif isinstance(componente, Cuestion):
+                    if test(componente.p, hipotesis):
+                        cuestiones = cuestiones + \
+                            [(componente.e,(True if test(componente.s, hipotesis) else False),1,componente.x)]
+                    else:
+                        cuestiones = cuestiones + \
+                            [(componente.e,'rechazada por ' + str(componente.p),0,componente.x)]
+                        print('\n Cuestion: '   + str(componente.e) \
+                            + ' rechazada por ' + str(componente.p) + '\n')
+                        break
+
+\end{minted}
+
+El atributo \texttt{self.l} es la lista \texttt{self.e} normalizada para que todos sus objetos sean listas; \texttt{self.long} es el número de componentes que constituyen el texto de cada variante. 
+\texttt{self.i} es el iterador y \texttt{self.c} un contador.
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def __iter__(self):
+    self.l    = [x if isinstance(x,list) else [x] for x in self.e]
+    self.long = len(self.l)
+    self.i    = iter(Marcador([len(x) for x in self.l]))
+    self.c    = 0
+    return self
+\end{minted}
+
+La generación de \texttt{variantes} de un \texttt{ProblemaTipo} se produce dentro de un bucle que solo se detiene cuando el intento (\texttt{try}) de iterar una vez más, \texttt{next(self.i)} falla por haberse agotado todas las variantes.
+
+\texttt{self.long} guarda el número de elementos (es decir, de cadenas, \texttt{Supuesto}-s y \texttt{Cuestion}-es) que constituyen el texto del problema.
+
+En cada iteración 1) \texttt{enunciado}, \texttt{hipotesis} y \texttt{cuestiones} comienzan estando vacías; y 2) se recorren uno a uno los componentes de la variante que se intenta construir.
+
+Una vez se han recorrido todos los componentes se devuelve la lista: 
+\texttt{(str(self.c), enunciado, cuestiones)} que constituye la variante concreta del problema que se ha generado en esa iteración.
+Cada tipo de \texttt{componente} es tratado de una forma distinta.
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def __next__(self):
+    
+    self.c += 1
+    while True:
+        try:
+            variante = next(self.i)
+        except StopIteration:
+            raise StopIteration
+
+        enunciado     = ""
+        hipotesis     = []
+        cuestiones    = []
+                     
+        for n in range(self.long+1):
+            if n == self.long:
+                return (str(self.c), enunciado, cuestiones)
+    
+            componente = self.l[n][variante[n]]
+            if isinstance(componente, str):
+                enunciado = enunciado + componente
+                
+            elif isinstance(componente, Supuesto):
+                if test(componente.p, hipotesis):
+                    enunciado = enunciado +  componente.e
+                    hipotesis = hipotesis + [componente.s]
+                else:
+                    print('\n Supuesto: '   + str(componente.e) \
+                        + ' rechazado por ' + str(componente.p) + '\n')
+                    break
+                
+            elif isinstance(componente, Cuestion):
+                if test(componente.p, hipotesis):
+                    cuestiones = cuestiones + \
+                        [(componente.e,(True if test(componente.s, hipotesis) else False),1,componente.x)]
+                else:
+                    cuestiones = cuestiones + \
+                        [(componente.e,'rechazada por ' + str(componente.p),0,componente.x)]
+                    print('\n Cuestion: '   + str(componente.e) \
+                        + ' rechazada por ' + str(componente.p) + '\n')
+                    break
+\end{minted}
+
+\label{Tratamiento en función del tipo de componente}
+\begin{itemize}
+\item Cuando el \texttt{componente} es una cadena, se considera dicha \texttt{componente} es parte del \texttt{enunciado} del problema, por lo que consecuentemente es añadido al mismo (es decir, se concatena al string \texttt{enunciado}).
+\item Cuando el \texttt{componente} es un \texttt{Supuesto}, se testea la \texttt{precondicion}. 
+Si \texttt{componente.p} es \texttt{True} o no es refutable a partir de las \texttt{hipotesis} entonces \texttt{componente.e} es añadido al enunciado y la proposición \texttt{componente.s} es añadida a \texttt{hipotesis}. 
+En caso contrario la variante del problema es completamente descartada y se imprime en la pantalla el motivo.
+\item Cuando el \texttt{componente} es una \texttt{Cuestion}, se testea la  \texttt{precondicion}. 
+Si \texttt{componente.p} es \texttt{True} o no es refutable a partir de las \texttt{hipotesis} entonces el par (\texttt{componente.e}, \texttt{True=/=False} dependiendo de lo que corresponda) es añadido a la lista de \texttt{cuestiones}. 
+En caso contrario la variante del problema es completamente descartada y se imprime en la pantalla el motivo.
+\end{itemize}
+
+\label{Tratamiento en función del tipo de componente}
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+if isinstance(componente, str):
+    enunciado = enunciado + componente
+    
+elif isinstance(componente, Supuesto):
+    if test(componente.p, hipotesis):
+        enunciado = enunciado +  componente.e
+        hipotesis = hipotesis + [componente.s]
+    else:
+        print('\n Supuesto: '   + str(componente.e) \
+            + ' rechazado por ' + str(componente.p) + '\n')
+        break
+    
+elif isinstance(componente, Cuestion):
+    if test(componente.p, hipotesis):
+        cuestiones = cuestiones + \
+            [(componente.e,(True if test(componente.s, hipotesis) else False),1,componente.x)]
+    else:
+        cuestiones = cuestiones + \
+            [(componente.e,'rechazada por ' + str(componente.p),0,componente.x)]
+        print('\n Cuestion: '   + str(componente.e) \
+            + ' rechazada por ' + str(componente.p) + '\n')
+        break
+\end{minted}
+\section{Ejemplo de uso}
+\label{sec:orgf1c76aa}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+p = ProblemaTipo( \
+      [
+          "Considere ",
+          [
+              Supuesto("A ", v("A")),
+              Supuesto("B ", v("B")),
+          ],
+          [
+              Supuesto("y que A implica C. ",    v("A") >> v("C")),
+              Supuesto("y que B equivale a D. ", v("B") ** v("D")),
+          ],
+          "Conteste: ",
+          [
+              Cuestion("¿Se da C?", v("C")),
+              Cuestion("¿Se da D?", v("D")),
+              Cuestion("¿Se da E?", v("E"), v("D")),
+          ],
+      ])
+    
+for i in p:
+    print(i)
+\end{minted}
+
+\phantomsection
+\label{}
+\begin{verbatim}
+('1', 'Considere A y que A implica C. Conteste: ', [('¿Se da C?', True, 1, '')])
+('2', 'Considere A y que A implica C. Conteste: ', [('¿Se da D?', False, 1, '')])
+
+ Cuestion: ¿Se da E? rechazada por v('D')
+
+('3', 'Considere A y que B equivale a D. Conteste: ', [('¿Se da C?', False, 1, '')])
+('4', 'Considere A y que B equivale a D. Conteste: ', [('¿Se da D?', False, 1, '')])
+
+ Cuestion: ¿Se da E? rechazada por v('D')
+
+('5', 'Considere B y que A implica C. Conteste: ', [('¿Se da C?', False, 1, '')])
+('6', 'Considere B y que A implica C. Conteste: ', [('¿Se da D?', False, 1, '')])
+
+ Cuestion: ¿Se da E? rechazada por v('D')
+
+('7', 'Considere B y que B equivale a D. Conteste: ', [('¿Se da C?', False, 1, '')])
+('8', 'Considere B y que B equivale a D. Conteste: ', [('¿Se da D?', True, 1, '')])
+('9', 'Considere B y que B equivale a D. Conteste: ', [('¿Se da E?', False, 1, '')])
+\end{verbatim}
+\section{Clase \texttt{ProblemaTipoProfe}}
+\label{sec:org0e4bd8a}
+
+Clase \texttt{ProblemaTipoProfe (supuestos\_y\_cuestiones)}
+\begin{description}
+\item[{\texttt{supuestos\_y\_cuestiones}}] es una lista de listas de strings, \texttt{Supuesto}-s, o \texttt{Cuestion}-es.
+\end{description}
+Para que sea más fácil la revisión y mantenimiento de cada pregunta, esta versión muestra todas las cuestiones posibles para cada enunciado. 
+También muestra las cuestiones excluídas y el motivo de la exclusión. Tan solo cambia el tratamiento de las \texttt{cuestiones} en el método \texttt{\_\_next\_\_}:
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+class ProblemaTipoProfe:
+    def __init__(self, supuestos_y_cuestiones):
+        <<Metodo auxiliar para juntar cuestiones en formato para profe>>
+        self.e = CuestionesJuntas(supuestos_y_cuestiones)
+
+    <<Método __iter__ para la clase ProblemaTipo>>
+    <<Método __next__ para la clase ProblemaTipoProfe>>
+\end{minted}
+
+Por tanto este trozo del código es igual que para el \texttt{ProblemaTipo} salvo la última parte
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def __next__(self):
+    
+    self.c += 1
+    while True:
+        try:
+            variante = next(self.i)
+        except StopIteration:
+            raise StopIteration
+
+        enunciado     = ""
+        hipotesis     = []
+        cuestiones    = []
+                     
+        for n in range(self.long+1):
+            if n == self.long:
+                return (str(self.c), enunciado, cuestiones)
+    
+            componente = self.l[n][variante[n]]
+            if isinstance(componente, str):
+                enunciado = enunciado + componente
+                
+            elif isinstance(componente, Supuesto):
+                if test(componente.p, hipotesis):
+                    enunciado = enunciado +  componente.e
+                    hipotesis = hipotesis + [componente.s]
+                else:
+                    print('\n Supuesto: '   + str(componente.e) \
+                        + ' rechazado por ' + str(componente.p) + '\n')
+                    break
+                
+            elif isinstance(componente, Cuestion):
+                if test(componente.p, hipotesis):
+                    cuestiones = cuestiones + \
+                        [(componente.e,(True if test(componente.s, hipotesis) else False),1,componente.x)]
+                else:
+                    cuestiones = cuestiones + \
+                        [(componente.e,'rechazada por ' + str(componente.p),0)]
+\end{minted}
+que cambia en su última parte
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+if isinstance(componente, str):
+    enunciado = enunciado + componente
+    
+elif isinstance(componente, Supuesto):
+    if test(componente.p, hipotesis):
+        enunciado = enunciado +  componente.e
+        hipotesis = hipotesis + [componente.s]
+    else:
+        print('\n Supuesto: '   + str(componente.e) \
+            + ' rechazado por ' + str(componente.p) + '\n')
+        break
+    
+elif isinstance(componente, Cuestion):
+    if test(componente.p, hipotesis):
+        cuestiones = cuestiones + \
+            [(componente.e,(True if test(componente.s, hipotesis) else False),1,componente.x)]
+    else:
+        cuestiones = cuestiones + \
+            [(componente.e,'rechazada por ' + str(componente.p),0)]
+\end{minted}
+\chapter{Clase \texttt{ProblemaVF}}
+\label{sec:orgb8ec072}
+
+Para crear cuestiones del tipo \texttt{Verdadero/Falso}.
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+from random import sample  
+class ProblemaVF():
+    def __init__(self, enunciado, cuestiones, NumPreguntas):
+        self.e = enunciado
+        self.c = cuestiones
+        self.NumPreguntas = NumPreguntas
+
+    def __iter__(self):
+        self.contador = 0
+        return self
+    
+    def __next__(self):
+        cuestiones = sample(self.c, self.NumPreguntas)
+        self.contador  += 1
+        return (str(self.contador), self.e, cuestiones)
+
+\end{minted}
+\section{Ejemplo de uso}
+\label{sec:orgfaf9c76}
+
+Cuatro exámenes con dos preguntas tipo test cada uno.
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+enunciado = "Marque las verdaderas:"
+
+banco = [
+  ("Todo alumno que va a clase aprueba",   False),
+  ("Todo alumno que suspende va a clase",  False),
+  ("Todo alumno que sabe aprueba",         True ),
+  ("Si aprueban todos eres buen profesor", False),
+  ("Si suspenden todos eres mal profesor", False),
+  ("Si suspenden todos es frustrante",     True),]
+
+p  = ProblemaVF (enunciado, banco, 3)      # tres preguntas por variante
+p0 = iter(p)
+
+for i in range(4):                         # cuatro variantes
+    print(next(p0))
+\end{minted}
+
+\phantomsection
+\label{Ejemplo de ProblemaVF}
+\begin{verbatim}
+('1', 'Marque las verdaderas:', [('Si suspenden todos es frustrante', True), ('Todo alumno que suspende va a clase', False), ('Si aprueban todos eres buen profesor', False)])
+('2', 'Marque las verdaderas:', [('Todo alumno que sabe aprueba', True), ('Si aprueban todos eres buen profesor', False), ('Todo alumno que suspende va a clase', False)])
+('3', 'Marque las verdaderas:', [('Si aprueban todos eres buen profesor', False), ('Todo alumno que suspende va a clase', False), ('Todo alumno que va a clase aprueba', False)])
+('4', 'Marque las verdaderas:', [('Si suspenden todos es frustrante', True), ('Si aprueban todos eres buen profesor', False), ('Todo alumno que sabe aprueba', True)])
+\end{verbatim}
+\part{Dando formato a las preguntas}
+\label{sec:orgdda8600}
+
+\chapter{Estructura de la librería \texttt{FormatoPreguntas.py}}
+\label{sec:orgdc17b3e}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+from prop import *
+
+<<Metodo auxiliar para juntar cuestiones en formato para profe>>
+<<Formato AMC>>
+<<Formato AMC Verdadero/Falso>>
+<<Formato AMC version Profe>>
+<<Formato AMC con lastchoice>>
+<<Formato AMC y multicolumna>>
+<<Formato AMC y multicolumna version Profe>>
+<<Formato AMC con lastchoice y multicolumna>>
+
+<<Método codchar para codificar caracteres no ASCII en \LaTeX{}>>
+    
+<<Quiz para Moodle>>
+<<Quiz para Moodle con valores>>
+<<Quiz para Moodle versión Profe>>
+<<Quiz para Moodle versión Profe con valores>>
+<<Quiz VF para Moodle>>
+<<Formato Moodle de preguntas de elección múltiple>>
+<<Formato Moodle de preguntas de elección múltiple para el Profe>>
+
+<<Quiz para Moodle con LastChoice>>
+<<Quiz para Moodle con LastChoice con valores>>
+<<Quiz VF para Moodle con LastChoice>>
+<<Formato Moodle de preguntas de elección múltiple con LastChoice>>
+
+<<Quiz para Jupyter>>
+
+\end{minted}
+\chapter{Preguntas en \LaTeX{} para usar con \href{https://www.auto-multiple-choice.net/}{Auto-Multiple-Choice}}
+\label{sec:orgecc6a54}
+
+
+Recorremos con un bucle la lista \texttt{cuestiones} de manera que en cada paso \texttt{c} es una nueva cuestión.  
+Si \texttt{c[2]} es cierta (si se verifica la precondición necesaria para formular la cuestión),
+añadimos dicha cuestión en la cadena de cuestiones \texttt{s} del siguiente modo: 
+si la cuestión es verdadera (si \texttt{c[1]==True}) escribimos \texttt{\textbackslash{}correctchoice\{}; y si no, escribimos \texttt{\textbackslash{}wrongchoice\{}. 
+Seguidamente escribimos el enunciado de la cuestión, \texttt{c[0]}, cerramos el comando de \LaTeX{} y saltamos de línea de texto, \texttt{\}\textbackslash{}n}.
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+for c in cuestiones:
+    if c[2]: 
+        s = s + '       ' \
+               + ('\\correctchoice{' if c[1] else '\\wrongchoice  {') + c[0] + '}\n'
+\end{minted}
+
+En el caso de las preguntas en versión para el profe, si \texttt{c[2]} no es cierta, añadimos dicha cuestión en la cadena \texttt{ex} de \emph{cuestiones excluidas}, seguida de un punto y coma y la proposición \texttt{c[1]} correspondiente a dicha cuestión. 
+Así, en el formato AMC para el profesor aparecerá, en la parte de explicación de cada pregunta, el listado de preguntas excluidas dado el enunciado de esa pregunta.
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+for c in cuestiones:
+    if c[2]: 
+        s = s + '       ' \
+              + ('\\correctchoice{' if c[1] else '\\wrongchoice  {') + c[0] + '}\n'
+    else:
+        ex = ex + ' cuestion: ' + c[0] + '; ' + c[1] + '\n'
+\end{minted}
+
+Cada variante tendrá una opción correcta si también añadimos la opción: \emph{``ninguna de las anteriores es correcta''}. 
+El comando \texttt{\textbackslash{}lastchoices\textbackslash{}n} asegura que ésta sea la última. 
+Indicamos que es incorrecta si alguna de las opciones en la lista \texttt{cuestiones} es \texttt{True}, o que ésta es la opción correcta en caso contrario.
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+s = s + '       ' + '\\lastchoices\n'
+s = s + '       ' \
+      + ('\\wrongchoice  {'if any([c[1] for c in cuestiones])else'\\correctchoice{')\
+      + OpcPorDefecto + '}\n'
+\end{minted}
+\section{Variante para preguntas Verdadero/Falso}
+\label{sec:orgd7485b5}
+
+Las preguntas de ejercicios del tipo Verdadero/Falso no tienen pre-condición, por tanto \texttt{c[2]} no existe. 
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+for c in cuestiones:
+    s = s + (" " * 7) + ( r'\correctchoice{' if c[1] else r'\wrongchoice{' ) + c[0] + '}\n'
+\end{minted}
+\begin{enumerate}
+\item Formatos para \href{https://www.auto-multiple-choice.net/}{AMC}
+\label{sec:org5f738d3}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def CuestionesJuntas(l):
+    def CreaLista(t):
+        return t if isinstance(t, list) else [t]
+    p = []
+    for e in l:
+        if isinstance(e,str):
+            p.append(e)
+        elif not isinstance(CreaLista(e)[0],Cuestion): 
+            p.append(e)
+        else:
+            p.extend(CreaLista(e))            
+    return p
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def AMC (nombre, etiqueta, enunciado, cuestiones, opc=["","Ninguna de las anteriores"]):
+    InstruccionesAux = opc[0]
+    OpcPorDefecto    = opc[1]
+    s = '\\element{' + nombre + '}{' + InstruccionesAux + '\n'
+    s = s + ' \\begin{questionmult}{' + nombre + '-' + str(etiqueta) + '}\n'
+    s = s + '  ' + enunciado + '\n'
+
+    s = s + '     \\begin{choices}\n'
+    for c in cuestiones:
+        if c[2]: 
+            s = s + '       ' \
+                   + ('\\correctchoice{' if c[1] else '\\wrongchoice  {') + c[0] + '}\n'
+    s = s + '     \\end{choices}\n'
+    
+    s = s + ' \\end{questionmult} '
+    s = s + '}\n\n'
+    return s
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def AMC_VF (nombre, etiqueta, enunciado, cuestiones, opc=["","Ninguna de las anteriores"]):
+    InstruccionesAux = opc[0]
+    OpcPorDefecto    = opc[1]
+    s = '\\element{' + nombre + '}{' + InstruccionesAux + '\n'
+    s = s + ' \\begin{questionmult}{' + nombre + '-' + str(etiqueta) + '}\n'
+    s = s + '  ' + enunciado + '\n'
+
+    s = s + '     \\begin{choices}\n'
+    for c in cuestiones:
+        s = s + (" " * 7) + ( r'\correctchoice{' if c[1] else r'\wrongchoice{' ) + c[0] + '}\n'
+    s = s + '     \\end{choices}\n'
+    
+    s = s + ' \\end{questionmult} '
+    s = s + '}\n\n'
+    return s
+\end{minted}
+
+
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def AMCProfe (nombre, etiqueta, enunciado, cuestiones, opc=["","Ninguna de las anteriores"]):    
+    InstruccionesAux = opc[0]
+    OpcPorDefecto    = opc[1]
+    ex = '' 
+    s = '\\element{' + nombre + '}{' + InstruccionesAux + '\n'
+    s = s + ' \\begin{questionmult}{' + nombre + '-' + str(etiqueta) + '}\n'
+    s = s + '  ' + enunciado + '\n'
+
+    s = s + '     \\begin{choices}\n'
+    for c in cuestiones:
+        if c[2]: 
+            s = s + '       ' \
+                  + ('\\correctchoice{' if c[1] else '\\wrongchoice  {') + c[0] + '}\n'
+        else:
+            ex = ex + ' cuestion: ' + c[0] + '; ' + c[1] + '\n'
+    s = s + '     \\end{choices}\n'
+    if ex:
+        s = s + '   \\explain{' + ex + '            }\n'     
+    s = s + ' \\end{questionmult} '
+    s = s + '}\n\n'
+    return s
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def AMClastCh (nombre, etiqueta, enunciado, cuestiones, opc=["","Ninguna de las anteriores"]):    
+    InstruccionesAux = opc[0]
+    OpcPorDefecto    = opc[1]
+    s = '\\element{' + nombre + '}{' + InstruccionesAux + '\n'
+    s = s + ' \\begin{questionmult}{' + nombre + '-' + str(etiqueta) + '}\n'
+    s = s + '  ' + enunciado + '\n'
+    
+    s = s + '     \\begin{choices}\n'
+    for c in cuestiones:
+        if c[2]: 
+            s = s + '       ' \
+                   + ('\\correctchoice{' if c[1] else '\\wrongchoice  {') + c[0] + '}\n'
+    s = s + '       ' + '\\lastchoices\n'
+    s = s + '       ' \
+          + ('\\wrongchoice  {'if any([c[1] for c in cuestiones])else'\\correctchoice{')\
+          + OpcPorDefecto + '}\n'
+    s = s + '     \\end{choices}\n'
+    
+    s = s + ' \\end{questionmult} '
+    s = s + '}\n\n'
+    return s
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def AMCmc (nombre, etiqueta, enunciado, cuestiones, c, opc=["","Ninguna de las anteriores"]):    
+    InstruccionesAux = opc[0]
+    OpcPorDefecto    = opc[1]
+    s = '\\element{' + nombre + '}{' + InstruccionesAux + '\n'
+    s = s + ' \\begin{questionmult}{' + nombre + '-' + str(etiqueta) + '}\n'
+    s = s + '  ' + enunciado + '\n'
+    s = s + '   \\begin{multicols}{' + str(c) + '}\\AMCBoxedAnswers\n'
+    s = s + '     \\begin{choices}\n'    
+    for c in cuestiones:
+        if c[2]: 
+            s = s + '       ' \
+                   + ('\\correctchoice{' if c[1] else '\\wrongchoice  {') + c[0] + '}\n'
+    s = s + '     \\end{choices}\n'
+    s = s + '   \\end{multicols}\n'
+    s = s + ' \\end{questionmult} '
+    s = s + '}\n\n'
+    return s
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def AMCmcProfe (nombre, etiqueta, enunciado, cuestiones, c, opc=["","Ninguna de las anteriores"]):
+    InstruccionesAux = opc[0]
+    OpcPorDefecto    = opc[1]
+    ex = '' 
+    s = '\\element{' + nombre + '}{' + InstruccionesAux + '\n'
+    s = s + ' \\begin{questionmult}{' + nombre + '-' + str(etiqueta) + '}\n'
+    s = s + '  ' + enunciado + '\n'
+    s = s + '   \\begin{multicols}{' + str(c) + '}\\AMCBoxedAnswers\n'
+    s = s + '     \\begin{choices}\n'    
+    for c in cuestiones:
+        if c[2]: 
+            s = s + '       ' \
+                  + ('\\correctchoice{' if c[1] else '\\wrongchoice  {') + c[0] + '}\n'
+        else:
+            ex = ex + ' cuestion: ' + c[0] + '; ' + c[1] + '\n'
+    s = s + '     \\end{choices}\n'
+    s = s + '   \\end{multicols}\n'
+    if ex:
+        s = s + '   \\explain{' + ex + '            }\n'     
+    s = s + ' \\end{questionmult} '
+    s = s + '}\n\n'
+    return s
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def AMClastChmc (nombre, etiqueta, enunciado, cuestiones, c, opc=["","Ninguna de las anteriores"]):    
+    InstruccionesAux = opc[0]
+    OpcPorDefecto    = opc[1]
+    s = '\\element{' + nombre + '}{' + InstruccionesAux + '\n'
+    s = s + ' \\begin{questionmult}{' + nombre + '-' + str(etiqueta) + '}\n'
+    s = s + '  ' + enunciado + '\n'
+    s = s + '   \\begin{multicols}{' + str(c) + '}\\AMCBoxedAnswers\n'
+    s = s + '     \\begin{choices}\n'
+    for c in cuestiones:
+        if c[2]: 
+            s = s + '       ' \
+                   + ('\\correctchoice{' if c[1] else '\\wrongchoice  {') + c[0] + '}\n'
+    s = s + '       ' + '\\lastchoices\n'
+    s = s + '       ' \
+          + ('\\wrongchoice  {'if any([c[1] for c in cuestiones])else'\\correctchoice{')\
+          + OpcPorDefecto + '}\n'
+    s = s + '     \\end{choices}\n'
+    s = s + '   \\end{multicols}\n'
+    s = s + ' \\end{questionmult} '
+    s = s + '}\n\n'
+    return s
+\end{minted}
+\end{enumerate}
+\section{Ejemplo de uso}
+\label{sec:orgfcdaeb6}
+
+Al ejecutar \texttt{python3 EjemploVFamc.py} donde el fichero
+\texttt{EjemploVFamc.py} contiene el siguiente código
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+from prop import *
+from FormatoPreguntas import *
+
+enunciado = "Indique qué afirmaciones son verdaderas:"
+banco = [
+     ("Todo alumno que va a clase aprueba",   False),
+     ("Todo alumno que suspende va a clase",  False),
+     ("Todo alumno que sabe aprueba",         True ),
+     ("Si aprueban todos eres buen profesor", False),
+     ("Si suspenden todos eres mal profesor", False),
+     ("Si suspenden todos es frustrante",     True ),]
+GenVar = iter( ProblemaVF (enunciado, banco, 3) ) # tres preguntas por variante
+
+nombre     = "EjemploVF"
+directorio = "../ejemplos/"
+with open(directorio + nombre + ".tex","w") as f:
+    for i in range(4):                            # cuatro variantes
+        var = (next(GenVar))
+        f.write(AMC_VF(nombre,var[0],var[1],var[2]))
+\end{minted}
+obtenemos el siguiente fichero \texttt{EjemploVF.tex} de problemas
+Verdadero/Falso en el directorio \texttt{../ejemplos}
+
+{\footnotesize
+\begin{verbatim}
+\element{EjemploVF}{
+
+ \begin{questionmult}{EjemploVF-1}
+  Indique qué afirmaciones son verdaderas:
+     \begin{choices}
+       \correctchoice{Todo alumno que sabe aprueba}
+       \wrongchoice  {Si aprueban todos eres buen profesor}
+       \wrongchoice  {Todo alumno que suspende va a clase}
+       \lastchoices
+       \wrongchoice  {Ninguna de las anteriores}
+     \end{choices}
+ \end{questionmult} }
+
+\element{EjemploVF}{
+
+ \begin{questionmult}{EjemploVF-2}
+  Indique qué afirmaciones son verdaderas:
+     \begin{choices}
+       \correctchoice{Si suspenden todos es frustrante}
+       \wrongchoice  {Todo alumno que suspende va a clase}
+       \correctchoice{Todo alumno que sabe aprueba}
+       \lastchoices
+       \wrongchoice  {Ninguna de las anteriores}
+     \end{choices}
+ \end{questionmult} }
+
+\element{EjemploVF}{
+
+ \begin{questionmult}{EjemploVF-3}
+  Indique qué afirmaciones son verdaderas:
+     \begin{choices}
+       \correctchoice{Todo alumno que sabe aprueba}
+       \wrongchoice  {Si suspenden todos eres mal profesor}
+       \wrongchoice  {Si aprueban todos eres buen profesor}
+       \lastchoices
+       \wrongchoice  {Ninguna de las anteriores}
+     \end{choices}
+ \end{questionmult} }
+
+\element{EjemploVF}{
+
+ \begin{questionmult}{EjemploVF-4}
+  Indique qué afirmaciones son verdaderas:
+     \begin{choices}
+       \wrongchoice  {Todo alumno que va a clase aprueba}
+       \correctchoice{Si suspenden todos es frustrante}
+       \wrongchoice  {Si suspenden todos eres mal profesor}
+       \lastchoices
+       \wrongchoice  {Ninguna de las anteriores}
+     \end{choices}
+ \end{questionmult} }
+
+\element{EjemploVF}{
+
+ \begin{questionmult}{EjemploVF-5}
+  Indique qué afirmaciones son verdaderas:
+     \begin{choices}
+       \wrongchoice  {Todo alumno que suspende va a clase}
+       \wrongchoice  {Si aprueban todos eres buen profesor}
+       \wrongchoice  {Todo alumno que va a clase aprueba}
+       \lastchoices
+       \correctchoice{Ninguna de las anteriores}
+     \end{choices}
+ \end{questionmult} }
+\end{verbatim}
+}
+
+
+\href{https://www.auto-multiple-choice.net/}{Auto-Multiple-Choice}
+escogerá para cada examen individual una de las variantes al azar (de
+esta manera es posible que cada alumno tenga un examen distinto al de
+los demás si generamos un número suficiente de variantes de cada
+problema). Un examen individual y un catálogo con las cinco variantes
+se puede ver en el subdirectorio de ejemplos.
+\begin{enumerate}
+\item Ejemplo de uso de una \texttt{PreguntaTipo}.
+\label{sec:org94c9671}
+
+Al ejecutar con Python el código del siguiente recuadro, se genera el
+fichero \texttt{Ejemploamc.tex} con las distintas variantes del
+\texttt{ProblemaTipo} (para ser usadas con
+\href{https://www.auto-multiple-choice.net/}{AMC}).
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+from prop import *
+from FormatoPreguntas import *
+
+p = [
+  [r"Se dice que un proceso estocástico $\boldsymbol{X}$ sin componentes deterministas es: "],
+  [Supuesto("", unoDe(v("I(0)"),v("I(1)"),v("I(2)")))],
+  [
+    Supuesto(r"$I(0)$ ",                      v("I(0)")),    
+    Supuesto(r"$I(1)$ ",                      v("I(1)")),    
+    Supuesto(r"$I(2)$ ",                      v("I(2)")),    
+  ],
+  [r"cuando"],
+  [
+    Cuestion("tiene representación ARMA estacionaria e invertible",                     v("I(0)") ),
+    Cuestion(r"$(1-\mathsf{B})^0*\boldsymbol{X}$ tiene representación ARMA estacionaria e invertible",
+                                                                                        v("I(0)") ),
+    Cuestion(r"$(1-\mathsf{B})*\boldsymbol{X}$ es I(0)",                                v("I(1)"), -v("I(0)") ),
+  ],
+  [
+    Cuestion(r"$(1-\mathsf{B})*\boldsymbol{X}$ tiene representación ARMA estacionaria e invertible",
+                                                                                        v("I(1)") ),
+    Cuestion(r"$Var(X_t)<\infty$, para $t\in\mathbb{Z}$",                                     False ),
+    Cuestion(r"$(1-\mathsf{B})^2*\boldsymbol{X}$ tiene representación ARMA estacionaria e invertible",
+                                                                                        v("I(2)") ),
+  ], 
+  [
+    Cuestion(r"$(1-\mathsf{B})^2*\boldsymbol{X}$ es I(1)",                                  False ),
+    Cuestion(r"$(1-\mathsf{B})*\boldsymbol{X}$ es I(1)",                                v("I(2)") ),
+    Cuestion(r"$(1-\mathsf{B})^2*\boldsymbol{X}$ es I(0)",                              v("I(2)"), -v("I(0)") ),
+  ],
+]
+preguntas = {}; mc=1;
+preguntas[nombre] = ProblemaTipoProfe( p );
+nombre     = "Ejemploamc"
+directorio = "../ejemplos/"
+
+mc = 1 # preguntas en una columna
+with open(directorio + nombre + ".tex","w") as f:
+    for var in preguntas[nombre]:
+        f.write( AMCmcProfe(nombre, var[0], var[1], var[2], mc) )
+\end{minted}
+
+{\footnotesize
+\begin{verbatim}
+\element{Ejemploamc}{
+
+ \begin{questionmult}{Ejemploamc-1}
+  Considere A y que A implica C. Indique qué opción es correcta: 
+   \begin{multicols}{2}\AMCBoxedAnswers
+     \begin{choices}
+       \correctchoice{Entonces C es verdadero}
+     \end{choices}
+   \end{multicols}
+ \end{questionmult} }
+
+\element{Ejemploamc}{
+
+ \begin{questionmult}{Ejemploamc-2}
+  Considere A y que A implica C. Indique qué opción es correcta: 
+   \begin{multicols}{2}\AMCBoxedAnswers
+     \begin{choices}
+       \wrongchoice  {Entonces D es verdadero}
+     \end{choices}
+   \end{multicols}
+ \end{questionmult} }
+
+\element{Ejemploamc}{
+
+ \begin{questionmult}{Ejemploamc-3}
+  Considere A y que B equivale a D. Indique qué opción es correcta: 
+   \begin{multicols}{2}\AMCBoxedAnswers
+     \begin{choices}
+       \wrongchoice  {Entonces C es verdadero}
+     \end{choices}
+   \end{multicols}
+ \end{questionmult} }
+
+\element{Ejemploamc}{
+
+ \begin{questionmult}{Ejemploamc-4}
+  Considere A y que B equivale a D. Indique qué opción es correcta: 
+   \begin{multicols}{2}\AMCBoxedAnswers
+     \begin{choices}
+       \wrongchoice  {Entonces D es verdadero}
+     \end{choices}
+   \end{multicols}
+ \end{questionmult} }
+
+\element{Ejemploamc}{
+
+ \begin{questionmult}{Ejemploamc-5}
+  Considere B y que A implica C. Indique qué opción es correcta: 
+   \begin{multicols}{2}\AMCBoxedAnswers
+     \begin{choices}
+       \wrongchoice  {Entonces C es verdadero}
+     \end{choices}
+   \end{multicols}
+ \end{questionmult} }
+
+\element{Ejemploamc}{
+
+ \begin{questionmult}{Ejemploamc-6}
+  Considere B y que A implica C. Indique qué opción es correcta: 
+   \begin{multicols}{2}\AMCBoxedAnswers
+     \begin{choices}
+       \wrongchoice  {Entonces D es verdadero}
+     \end{choices}
+   \end{multicols}
+ \end{questionmult} }
+
+\element{Ejemploamc}{
+
+ \begin{questionmult}{Ejemploamc-7}
+  Considere B y que B equivale a D. Indique qué opción es correcta: 
+   \begin{multicols}{2}\AMCBoxedAnswers
+     \begin{choices}
+       \wrongchoice  {Entonces C es verdadero}
+     \end{choices}
+   \end{multicols}
+ \end{questionmult} }
+
+\element{Ejemploamc}{
+
+ \begin{questionmult}{Ejemploamc-8}
+  Considere B y que B equivale a D. Indique qué opción es correcta: 
+   \begin{multicols}{2}\AMCBoxedAnswers
+     \begin{choices}
+       \correctchoice{Entonces D es verdadero}
+     \end{choices}
+   \end{multicols}
+ \end{questionmult} }
+
+\element{Ejemploamc}{
+
+ \begin{questionmult}{Ejemploamc-9}
+  Considere B y que B equivale a D. Indique qué opción es correcta: 
+   \begin{multicols}{2}\AMCBoxedAnswers
+     \begin{choices}
+       \wrongchoice  {Entonces E es verdadero}
+     \end{choices}
+   \end{multicols}
+ \end{questionmult} }
+\end{verbatim}
+}
+\end{enumerate}
+\chapter{Preguntas en \texttt{xml} para usar con Moodle}
+\label{sec:org793b3f6}
+
+Para generar los ficheros \texttt{xml} vamos a seguir un método
+indirecto. El motivo es que escribir en \texttt{xml} puede ser tedioso
+debido a los caracteres no ASCII y las expresiones matemáticas de
+\LaTeX{}. La solución más práctica que he encontrado es generar desde
+Python un fichero \LaTeX{} que a su vez emplea el paquete
+\href{https://gitlab.mattgk.myds.me/mattguer/moodle/}{moodle}. Así, al
+compilar el fichero de \LaTeX{} con \texttt{pdflatex} obtendremos, tanto
+una versión en pdf de las preguntas (¡Algo mucho más cómodo a la hora
+de trabajar), como un fichero \texttt{xml} para ser importado en
+Moodle. Además, este método indirecto nos evita generar la estructura
+de los ficheros de preguntas en \texttt{xml} al estilo Moodle\dots{} !la
+estructura en \LaTeX{} es mucho más sencilla! (o al menos, más
+familiar).
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+s = "\\documentclass[11pt]{article}\n\n"
+s = s + "\\usepackage[cm,headings]{fullpage}\n\n"
+s = s + "\\usepackage{moodle}\n\n"
+s = s + "\\usepackage{graphicx}\n\n"
+s = s + "\\usepackage{fancyvrb}\n\n"
+s = s + "\\ifPDFTeX                     % FOR LATEX and PDFLATEX\n"
+s = s + "    \\usepackage[utf8]{inputenc}   % necessary\n"
+s = s + "    \\usepackage[OT1] {fontenc}    % necessary\n"
+s = s + "\\else                         % assuming XELATEX or LUALATEX\n"
+s = s + "    \\usepackage{fontspec}\n"
+s = s + "\\fi\n\n"
+s = s + auxLaTeX + "\n" + "\\newcommand\\peque{}" + "\n\n"
+s = s + "\\begin{document}\n\n"
+\end{minted}
+
+Con las cuestiones de opción múltiple, el 100$\backslash$% de la nota de la
+pregunta se obtiene si se marcan todas las correctas (indicadas con
+\texttt{\textbackslash{}item*} y el 100$\backslash$% de la nota se pierde si se marcan todas la
+incorrectas (las que aparecen con =\item =).
+
+\textbf{Advertencia:} Lamentablemente Moodle no permite que la
+puntuación global de ninguna pregunta de opción múltiple sea negativa
+(es imposible que las preguntas de opción múltiple tengan esperanza
+nula; en contraste con
+\href{https://www.auto-multiple-choice.net/}{AMC}, donde se puede
+programar cualquier regla de puntuación).
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+for c in cuestiones:
+    #s = s + "       " + ("\\item* " if c[1] else "\\item ") + codchar(c[0]) + "\n"
+    s = s + "       " + ( itemBuena(c[3]) if c[1] else itemMala(c[3]) ) + codchar(c[0]) + "\n"
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+for c in cuestiones:
+    if c[2]: 
+        s = s + '       ' + (itemBuena(b,c[3]) if c[1] else itemMala(m,c[3])) + codchar(c[0]) + "\n"
+        #s = s + '       ' + (buena if c[1] else mala) + codchar(c[0]) + "\n"
+    else:
+        ex = ex + ' cuestion: ' + c[0] + '; ' + c[1] + '\n'
+\end{minted}
+
+Si ninguna respuesta es correcta, al compilar el fichero de \LaTeX{}
+obtendremos un error (Moodle exige que al menos haya una respuesta
+correcta). Por ello, podemos incluir la opción \emph\{``Las demás
+  respuestas son incorrectas''\}. Lamentablemente, Moodle tampoco tiene
+un comando del tipo \texttt{\textbackslash{}lastchoice}, que fuerza a que esta opción
+aparezca en último lugar aunque se barajen las opciones; por eso pongo
+\emph{las demás} en lugar de \emph{las anteriores} como en los exámenes
+con \href{https://www.auto-multiple-choice.net/}{AMC}. Esta opción
+será falsa si alguna de las demás es \texttt{True}.
+
+\label{cuestion alternativa por defecto para Moodle}
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+v = [c[1] for c in cuestiones].count(True)
+cuestiones = cuestiones + [(codchar(lastchoice), (False if v else True), 1, '')]
+\end{minted}
+\section{\texttt{QuizMoodle}, \texttt{QuizMoodleLastCh}, \texttt{QuizVFMoodle} y \texttt{QuizVFMoodleLastCh}}
+\label{sec:org68597c4}
+
+\texttt{QuizMoodle} genera un archivo \LaTeX{} con las variantes de un \texttt{ProblemaTipo}. 
+Sus argumentos son el \texttt{nombre} del \texttt{ProblemaTipo}, el \texttt{directorio} donde queremos crear el fichero de \LaTeX{}, y la lista \texttt{problema} que contiene las variantes.
+La cadena \texttt{s} contiene el preámbulo del archivo. 
+A la cadena \texttt{s} se le concatena el inicio del entorno \texttt{quiz}, cuyo primer argumento es el \texttt{nombre} del problema (del que escribiremos las distintas versiones).
+
+\begin{itemize}
+\item Con \texttt{with open()} creamos el archivo \texttt{nombre.tex} en el \texttt{directorio} que hayamos indicado; y entonces
+\begin{itemize}
+\item Escribimos la cadena \texttt{s} en dicho archivo.
+
+\item Luego recorremos todas las \texttt{var=iantes de la lista =problema} con un \texttt{for}. 
+Por cada variante llamamos a \texttt{MoodleMulti} para escribir una pregunta de opción múltiple con los argumentos \texttt{nombre}, número de variante (\texttt{var[0]}), enunciado de la variante (\texttt{var[1]}), y las cuestiones de la variante (\texttt{var[2]}).
+
+\item Una vez terminado el bucle \texttt{for}, escribimos el cierre del entorno \texttt{quiz} y el final del documento de \LaTeX{}.
+\end{itemize}
+\end{itemize}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def creaDiccionario(x, key='key'):
+    return x if isinstance(x, dict) else {key: x}
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def QuizMoodle (nombre, directorio, problema, opc=["",""]):
+    <<Método auxiliar que transforma un objeto en diccionario si no era ya un diccionario>>
+    problema = creaDiccionario(problema, nombre)
+    auxLaTeX = opc[0]
+    <<Preámbulo fichero \LaTeX{} con paquete moodle>>
+    s = s + "\\begin{quiz}{" + nombre + "}\n\n"
+    with open(directorio + nombre + ".tex","w") as f:
+        f.write(s)
+        for i,nom in enumerate(problema):
+            for var in problema[nom]:
+                f.write( MoodleMulti(codchar(nom), var[0], codchar(var[1]), var[2]) )
+        f.write("\\end{quiz}\n\n\\end{document}\n")
+
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def QuizMoodleConVariables (nombre, directorio, problema, environment, Valores, opc=["",""]):
+    <<Método auxiliar que transforma un objeto en diccionario si no era ya un diccionario>>
+    problema = creaDiccionario(problema, nombre)
+    auxLaTeX = opc[0]
+    <<Preámbulo fichero \LaTeX{} con paquete moodle>>
+    s = s + "\\begin{quiz}{" + nombre + "}\n\n"
+    with open(directorio + nombre + ".tex","w") as f:
+        f.write(s)
+        for i,nom in enumerate(problema):
+            for var in problema[nom]:
+                template = environment.from_string(MoodleMulti(codchar(nom), var[0], codchar(var[1]), var[2]))
+                content = template.render(Valores())
+                f.write(content)
+                #f.write( MoodleMulti(codchar(nom), var[0], codchar(var[1]), var[2]) )
+        f.write("\\end{quiz}\n\n\\end{document}\n")
+
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def QuizMoodleProfe (nombre, directorio, problema, opc=["",""]):
+    <<Método auxiliar que transforma un objeto en diccionario si no era ya un diccionario>>
+    problema = creaDiccionario(problema, nombre)
+    auxLaTeX = opc[0]
+    <<Preámbulo fichero \LaTeX{} con paquete moodle>>
+    s = s + "\\begin{quiz}{" + nombre + "}\n\n"
+    with open(directorio + nombre + ".tex","w") as f:
+        f.write(s)
+        for i,nom in enumerate(problema):
+            for var in problema[nom]:
+                f.write( MoodleMultiProfe(codchar(nom), var[0], codchar(var[1]), var[2]) )
+        f.write("\\end{quiz}\n\n\\end{document}\n")
+
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def QuizMoodleProfeConVariables (nombre, directorio, problema, environment, Valores, opc=["",""]):
+    <<Método auxiliar que transforma un objeto en diccionario si no era ya un diccionario>>
+    problema = creaDiccionario(problema, nombre)
+    auxLaTeX = opc[0]
+    <<Preámbulo fichero \LaTeX{} con paquete moodle>>
+    s = s + "\\begin{quiz}{" + nombre + "}\n\n"
+    with open(directorio + nombre + ".tex","w") as f:
+        f.write(s)
+        for i,nom in enumerate(problema):
+            for var in problema[nom]:
+                template = environment.from_string(MoodleMultiProfe(codchar(nom), var[0], codchar(var[1]), var[2]))
+                content = template.render(Valores())
+                f.write(content)
+                #f.write( MoodleMultiProfe(codchar(nom), var[0], codchar(var[1]), var[2]) )
+        f.write("\\end{quiz}\n\n\\end{document}\n")
+
+\end{minted}
+
+Si necesitamos que las variantes añadan la \hyperref[cuestion alternativa por defecto para Moodle]{cuestion alternativa por defecto para Moodle}
+para así asegurarnos de que siempre hay una respuesta correcta,
+entonces empleamos el método \texttt{QuizMoodleLastCh}, que hace lo
+mismo que el anterior pero llamando a \texttt{MoodleMultiLastCh}.
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def QuizMoodleLastCh (nombre, directorio, problema, opc=["","Las demás opciones son falsas"]):
+    <<Método auxiliar que transforma un objeto en diccionario si no era ya un diccionario>>
+    auxLaTeX      = opc[0]
+    OpcPorDefecto = opc[1]
+    <<Preámbulo fichero \LaTeX{} con paquete moodle>>
+    s = s + "\\begin{quiz}{" + nombre + "}\n\n"
+    with open(directorio + nombre + ".tex","w") as f:
+        f.write(s)
+        for i,nom in enumerate(creaDiccionario(problema, nombre)):
+            for var in problema[nom]:
+                f.write(MoodleMultiLastCh(codchar(nom),var[0],codchar(var[1]),var[2],opc[1]))
+        f.write("\\end{quiz}\n\n\\end{document}\n")
+
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def QuizMoodleLastChConVariables (nombre, directorio, problema, environment, Valores, opc=["","Las demás opciones son falsas"]):
+    <<Método auxiliar que transforma un objeto en diccionario si no era ya un diccionario>>
+    auxLaTeX      = opc[0]
+    OpcPorDefecto = opc[1]
+    <<Preámbulo fichero \LaTeX{} con paquete moodle>>
+    s = s + "\\begin{quiz}{" + nombre + "}\n\n"
+    with open(directorio + nombre + ".tex","w") as f:
+        f.write(s)
+        for i,nom in enumerate(creaDiccionario(problema, nombre)):
+            for var in problema[nom]:
+                template = environment.from_string(MoodleMultiLastCh(codchar(nom), var[0], codchar(var[1]), var[2]))
+                content = template.render(Valores())
+                f.write(content)
+                #f.write(MoodleMultiLastCh(codchar(nom),var[0],codchar(var[1]),var[2],opc[1]))
+        f.write("\\end{quiz}\n\n\\end{document}\n")
+
+\end{minted}
+
+\texttt{QuizVFMoodle} genera un archivo \LaTeX{} con las variantes de un \texttt{ProblemaVF}. 
+Los argumentos son el \texttt{nombre} del \texttt{ProblemaVF}, el \texttt{directorio} donde crear el archivo, el iterador \texttt{GenVar} que genera las variantes, y el \texttt{num}-ero de variantes que se desea.
+Como antes, la cadena \texttt{s} contiene el preámbulo del archivo y el inicio del entorno \texttt{quiz}, cuyo primer argumento es el \texttt{nombre} del problema.
+\begin{itemize}
+\item Con \texttt{with open()} creamos el archivo \texttt{nombre.tex} en el \texttt{directorio} que hayamos indicado; y entonces
+\begin{itemize}
+\item escribimos la cadena \texttt{s} en dicho archivo.
+
+\item luego iteramos el bucle \texttt{for} tanta veces como hayamos indicado en \texttt{num}. 
+En cada iteración obtenemos una una nueva variante \texttt{var}, llamamos a \texttt{MoodleMulti} para escribir una pregunta de opción múltiple con los argumentos \texttt{nombre}, número de variante (\texttt{var[0]}), enunciado de la variante (\texttt{var[1]}), y las cuestiones de la variante (\texttt{var[2]}).
+
+\item una vez terminado el bucle \texttt{for}, escribimos el cierre del entorno \texttt{quiz} y el final del documento de \LaTeX{}.
+\end{itemize}
+\end{itemize}
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def QuizVFMoodle (nombre, directorio, GenVar, num, opc=["",""]):
+    auxLaTeX      = opc[0]
+    <<Preámbulo fichero \LaTeX{} con paquete moodle>>
+    s = s + "\\begin{quiz}{" + nombre + "}\n\n"
+    with open(directorio + nombre + ".tex","w") as f:
+        f.write(s)
+        for i in range(num):
+            var = next(GenVar)
+            f.write( MoodleMulti (codchar(nombre), var[0], codchar(var[1]), var[2]) )
+        f.write("\\end{quiz}\n\n\\end{document}\n")
+\end{minted}
+
+Cuando necesitamos que las variantes añadan la \hyperref[cuestion alternativa por defecto para Moodle]{cuestion alternativa por defecto para Moodle}, empleamos el método \texttt{QuizVFMoodleLastCh}, que hace lo mismo que el anterior pero llamando a \texttt{MoodleMultiLastCh}.
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def QuizVFMoodleLastCh (nombre, directorio, GenVar, num, opc=["","Las demás opciones son falsas"]):
+    auxLaTeX      = opc[0]
+    <<Preámbulo fichero \LaTeX{} con paquete moodle>>
+    s = s + "\\begin{quiz}{" + nombre + "}\n\n"
+    with open(directorio + nombre + ".tex","w") as f:
+        f.write(s)
+        for i in range(num):
+            var = next(GenVar)
+            f.write(MoodleMultiLastCh(codchar(nombre),var[0],codchar(var[1]),var[2],opc[1]))
+        f.write("\\end{quiz}\n\n\\end{document}\n")
+\end{minted}
+\section{\texttt{MoodleMulti} y \texttt{MoodleMultiLastCh}}
+\label{sec:org2b133ac}
+
+\texttt{MoodleMulti} genera una cadena de caracteres con los comandos \LaTeX{} correspondientes a una pregunta de opción múltiple. 
+Los parámetros del método \texttt{MoodleMulti} son: \texttt{nombre} (el nombre del problema) y \texttt{variante} (el número de la variante)\footnote{Que separados por un guión son empleados como nombre de cada variante del problema de opción múltiple dentro del código \LaTeX{}.}, el \texttt{enunciado} de la variante y la lista de \texttt{cuestiones} de la variante.
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def MoodleMulti (nombre, variante, enunciado, cuestiones):
+    <<Escritura del entorno multi>>
+\end{minted}
+
+El método \texttt{MoodleMulti} escribe el código \LaTeX{} de un entorno \texttt{multi} del paquete \href{https://gitlab.mattgk.myds.me/mattguer/moodle/}{moodle} con los siguientes parámetros opcionales para dicho entorno: \texttt{multiple} para que sea una pregunta de opción múltiple y \texttt{points} el número de opciones de respuesta de la pregunta (la longitud de \texttt{cuestiones}).
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+<<Escritura de cada item de cuestión en Moodle>>
+
+ex = ''
+s = " \\begin{multi}[multiple, points=" + str(len(cuestiones)-1) +"]"
+s = s + "{" + codchar(nombre) + "-" + str(variante) + "}\n"
+s = s + "    " + enunciado + "\n"
+
+<<Escritura de las cuestiones para Moodle>>
+
+s = s + " \\end{multi}\n\n"
+return s
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def MoodleMultiProfe (nombre, variante, enunciado, cuestiones):
+    <<Escritura aclaración en Moodle>>
+    <<Escritura del entorno multi para el Profe>>
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def feedback(texto):
+    return r",feedback={"+codchar(texto)+"}"
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+<<Conteo de respuestas correctas e incorrectas>>
+<<Escritura de cada item de cuestión en Moodle para Profe>>
+
+ex = ''
+s = " \\begin{multi}[multiple, fractiontol=5.1"  +"]" # , points=" + str(len(cuestiones)-1)
+s = s + "{" + codchar(nombre) + "-" + str(variante) + "}\n"
+s = s + "    " + enunciado + "\n"
+
+<<Escritura de las cuestiones para Moodle para el Profe>>
+
+s = s + " \\end{multi}\n\n"
+return s
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+b = 0; m = 0;
+for c in cuestiones:
+    print(c)
+    if c[2]:
+        if c[1]:
+            b+=1
+        else:
+            m+=1
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def itemBuena(aclaracion):
+    return ("\\item[feedback={" + codchar(aclaracion) + "}]* ") if aclaracion else r"\item* "
+                                                      
+def itemMala(aclaracion):
+    return ("\\item[feedback={" + codchar(aclaracion) + "}]  ") if aclaracion else r"\item  "
+\end{minted}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def itemBuena(numBuenas,aclaracion):
+    return ("\\item[fraction=" + str( round(100/numBuenas) ) + feedback(aclaracion) + "]") if numBuenas else "\\item*"
+                                                      
+def itemMala(numMalas,aclaracion):
+    return ("\\item[fraction=" + str(-round(100/numMalas) ) + feedback(aclaracion) + "]") if numMalas else "\\item"
+\end{minted}
+
+Cuando requerimos añadir la \hyperref[cuestion alternativa por defecto para Moodle]{cuestion alternativa por defecto para Moodle} llamamos a \texttt{MoodleMultiLastCh} que añade la opción \emph{``Las demás opciones son falsas''} a la lista \texttt{cuestiones}.
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def MoodleMultiLastCh (nombre, variante, enunciado, cuestiones, \
+                       lastchoice="Las demás opciones son falsas"):    
+    <<cuestion alternativa por defecto para Moodle>>
+    <<Escritura del entorno multi>>
+
+\end{minted}
+\subsection{Codificación de caracteres no \texttt{ASCII}}
+\label{sec:org287be20}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+def codchar(s):
+     s = s.replace("á", "\\'{a}")
+     s = s.replace("é", "\\'{e}")
+     s = s.replace("í", "\\'{i}")
+     s = s.replace("ó", "\\'{o}")
+     s = s.replace("ú", "\\'{u}")
+     s = s.replace("ñ", "\\~{n}")
+     return s
+\end{minted}
+\section{Ejemplo de uso de \texttt{QuizMoodleLastCh} y \texttt{QuizVFMoodleLastCh}}
+\label{sec:org3891f5e}
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+from prop import *
+from FormatoPreguntas import *
+p = ProblemaTipo( \
+      [   "Considere ",
+          [
+              Supuesto("$\\mathcal{A}$ ", v("A")),
+              Supuesto("$\\mathcal{B}$ ", v("B")),
+          ],
+          [
+              Supuesto("y que $\\mathcal{A}\\Rightarrow\\mathcal{C}$. ",    \
+                       v("A") >> v("C")),
+              Supuesto("y que $\\mathcal{B}\\Leftrightarrow\\mathcal{D}$. ",\
+                       v("B") ** v("D")),
+          ],
+          "Indique qué opción es correcta: ",
+          [
+              Cuestion("Entonces $\\mathcal{C}$ es verdadero", v("C")),
+              Cuestion("Entonces $\\mathcal{D}$ es verdadero", v("D")),
+              Cuestion("Entonces $\\mathcal{E}$ es verdadero", v("E"), v("D")),
+          ],
+      ])     
+nombre     = "EjemploMoodle"
+directorio = "../ejemplos/"
+QuizMoodleLastCh (nombre, directorio, p) # con alternativa por defecto
+
+\end{minted}
+
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+from prop import *
+from FormatoPreguntas import *
+
+enunciado = "Indique qué afirmaciones son verdaderas:"
+banco = [
+  ("Todo alumno que va a clase aprueba",   False),
+  ("Todo alumno que suspende va a clase",  False),
+  ("Todo alumno que sabe aprueba",         True ),
+  ("Si aprueban todos eres buen profesor", False),
+  ("Si suspenden todos eres mal profesor", False),
+  ("Si suspenden todos es frustrante",     True ),]
+
+b = [(codchar(p[0]),p[1]) for p in banco]
+
+GenVar = iter( ProblemaVF (codchar(enunciado), b, 3) ) # tres respuestas opcionales
+                                       # (sin contar con la alternativa por defecto)
+
+nombre     = "EjemploVFMoodle"
+directorio = "../ejemplos/"
+
+QuizVFMoodleLastCh (nombre, directorio, GenVar, 4) # con alternativa por defecto
+
+\end{minted}
+\part{Ejemplo de pregunta de opción múltiple para Econometría}
+\label{sec:org07a4dc5}
+
+\begin{enumerate}
+\item Para Moodle.
+\label{sec:org8f3f58c}
+
+Los procedimientos \texttt{QuizVFMoodleLastCh}, \texttt{QuizMoodleLastCh},
+\texttt{QuizVFMoodle} y \texttt{QuizMoodle} crean (en el \texttt{directorio}
+indicado, y con el \texttt{nombre} indicado) el fichero de \LaTeX{}\{:\}
+\texttt{directorio/nombre-Moodle.tex}. Dicho fichero emplea el paquete
+\href{https://gitlab.mattgk.myds.me/mattguer/moodle}{moodle} que he
+sacado de \url{https://gitlab.mattgk.myds.me/mattguer/moodle}. Al
+compilarlo con \texttt{pdflatex} obtenemos un fichero \texttt{pdf} para revisar
+las preguntas (algo muy cómodo a la hora de desarrollar un banco de
+preguntas). Pero si compilamos el fichero con \texttt{lualatex} (o con
+\texttt{xelatex}) obtendremos tanto el fichero \texttt{pdf} como otro fichero
+\texttt{xml} para ser importado en Moodle. Puestos a facilitar las cosas,
+el siguiente código de Python crea tanto el fichero \texttt{xml} como el
+\texttt{pdf}. Para ello importamos el método \texttt{call} de la librería
+\texttt{subprocess}, y decimos que compile el fichero \texttt{.tex} con
+\texttt{lualatex} en el \texttt{directorio} indicado.
+\item Para \href{https://www.auto-multiple-choice.net/}{Auto-Multiple-Choice}.
+\label{sec:org7f235bd}
+
+Los procedimientos \texttt{AMC}, \texttt{AMClastCh}, \texttt{AMCmc} y \texttt{AMClastChmc}
+generan un string con el código \LaTeX{} de las preguntas en el
+formato \href{https://www.auto-multiple-choice.net/}{AMC}. Dicho
+código se escribe en el fichero \texttt{directorio/nombre.tex}, que nos
+servirá como parte del banco de preguntas a usar con
+\href{https://www.auto-multiple-choice.net/}{AMC} para generar
+exámenes aleatorios.
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+from prop import *
+from FormatoPreguntas import *
+from subprocess import call
+p = ProblemaTipo( \
+  [
+    [  "En el ajuste MCO del modelo lineal " \
+       + "$\\mathbf{y}=\\mathbf{X}{\\mathbf{\\beta}}+{\\mathbf{otros}}$, donde " \
+       + "$\\mathop{\\mathbf{X}}\\limits_{[{\\scriptscriptstyle N\\times K}]}$, "
+    ],
+    [
+        Supuesto("si $rg(\\mathbf{X}) < k$, donde $k \\leq N$, entonces: ",
+                 v("Mcoli")),
+
+        Supuesto("si $rg(\\mathbf{X}) = k$, donde $k \\leq N$, entonces: ",
+                 -v("Mcoli")),
+    ],
+    [
+        Cuestion("Ningún regresor es combinación lineal de los demás",
+                 -v("Mcoli")),
+        
+        Cuestion("Las $k$ columnas de $\\mathbf{X}$ son linealmente indep.",
+                 -v("Mcoli")),
+        
+        Cuestion("Las $N$ filas de $\\mathbf{X}$ son linealmente indep.",
+                 False),
+        
+        Cuestion("Algún regresor es combinación lineal del resto",
+                 v("Mcoli")),
+    ],
+    [
+        Cuestion("El vector $\\mathbf{y}$ es combinación lineal de los regresores",
+                 False, -v("Mcoli")),
+        
+        Cuestion("Las ecuaciones normales tienen una \\emph{única} solución",
+                 -v("Mcoli")),
+        
+        Cuestion("Es sistema de ecuaciones normales es compatible (tiene solución)",
+                 True),
+    ],
+    [
+        Cuestion("El estimador MCO $\\widehat{\\mathbf{\\beta}}$ está definido",
+                 -v("Mcoli")),
+        
+        Cuestion("La correlación entre regresores es 1 en valor absoluto",
+                 False),
+        
+        Cuestion("La correlación entre regresores es menor que 1 en valor absoluto",
+                 -v("Mcoli")),
+    ],
+  ])     
+
+nombre     = "EcNormales-RangoX"
+directorio = "../ejemplos/"
+
+QuizMoodleLastCh (nombre + "-Moodle", directorio, p)
+cmd = "cd " + directorio + "&& lualatex " + nombre + "-Moodle" + ".tex"
+status = call(cmd, cwd=directorio, shell=True)
+     
+with open(directorio + nombre + ".tex","w") as f:
+    for var in p:
+        f.write( AMClastCh(nombre, var[0], var[1], var[2]) ) 
+
+\end{minted}
+
+La \texttt{<{}<{}Pregunta EcNormales-RangoX>{}>{}} contempla dos \texttt{Supuesto=s
+excluyentes: que haya multicolinealidad (=v("Mcoli")}), o que no
+(\texttt{-v("Mcoli")}); y cuenta con tres bloques de \texttt{Cuestion=es
+excluyentes (más la opción /``ninguna de las anteriores''/ para
+que siempre haya una opción correcta). Una =Cuestion} siempre es
+\texttt{True}; tres son \texttt{False} y el resto depende del \texttt{Supuesto} en
+cuestión. Una de ellas se formula solo si$\backslash$; \texttt{-v("Mcoli")}$\backslash$; es
+decir, tiene precondición. \\
+\textbf{Resultado:} \emph{60 variantes de esta pregunta}.
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos=]{python}
+p = ProblemaTipo( \
+  [
+    [  "En el ajuste MCO del modelo lineal " \
+       + "$\\mathbf{y}=\\mathbf{X}{\\mathbf{\\beta}}+{\\mathbf{otros}}$, donde " \
+       + "$\\mathop{\\mathbf{X}}\\limits_{[{\\scriptscriptstyle N\\times K}]}$, "
+    ],
+    [
+        Supuesto("si $rg(\\mathbf{X}) < k$, donde $k \\leq N$, entonces: ",
+                 v("Mcoli")),
+
+        Supuesto("si $rg(\\mathbf{X}) = k$, donde $k \\leq N$, entonces: ",
+                 -v("Mcoli")),
+    ],
+    [
+        Cuestion("Ningún regresor es combinación lineal de los demás",
+                 -v("Mcoli")),
+        
+        Cuestion("Las $k$ columnas de $\\mathbf{X}$ son linealmente indep.",
+                 -v("Mcoli")),
+        
+        Cuestion("Las $N$ filas de $\\mathbf{X}$ son linealmente indep.",
+                 False),
+        
+        Cuestion("Algún regresor es combinación lineal del resto",
+                 v("Mcoli")),
+    ],
+    [
+        Cuestion("El vector $\\mathbf{y}$ es combinación lineal de los regresores",
+                 False, -v("Mcoli")),
+        
+        Cuestion("Las ecuaciones normales tienen una \\emph{única} solución",
+                 -v("Mcoli")),
+        
+        Cuestion("Es sistema de ecuaciones normales es compatible (tiene solución)",
+                 True),
+    ],
+    [
+        Cuestion("El estimador MCO $\\widehat{\\mathbf{\\beta}}$ está definido",
+                 -v("Mcoli")),
+        
+        Cuestion("La correlación entre regresores es 1 en valor absoluto",
+                 False),
+        
+        Cuestion("La correlación entre regresores es menor que 1 en valor absoluto",
+                 -v("Mcoli")),
+    ],
+  ])     
+\end{minted}
+
+\%        \#Cuestion("Los regresores son linealmente indep.", -v("Mcoli")),
+\item Advertencia sobre \LaTeX{} dentro de Moodle.
+\label{sec:org8cbccb2}
+
+Desgraciadamente Moodle no permite modificar el preámbulo de \LaTeX{}
+salvo si se es el administrador de sistema (en nuestro caso, los
+servicios informáticos de la UCM). Así que si se quiere usar algún
+paquete específico de \LaTeX{} (por ejemplo \texttt{amsmath} para
+representar un vector en negrita cursiva) no es posible. Y si
+definimos algún comando de \LaTeX{}, no será interpretado por Moodle
+(es decir, las preguntas tipo test mostrarán el código de dichos los
+comandos de \LaTeX{} pero sin interpretarlo).
+\end{enumerate}
+\end{document}

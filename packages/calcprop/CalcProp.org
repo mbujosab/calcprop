@@ -1,0 +1,558 @@
+#+TITLE: calcprop — cálculo proposicional
+#+LANGUAGE: es
+#+OPTIONS: toc:t num:t H:4
+#+STARTUP: overview
+
+# ─── Configuración de org-babel ───────────────────────────────────
+#+PROPERTY: header-args:python :noweb yes
+#+PROPERTY: header-args:jupyter-python :kernel calcprop
+
+# ─── LaTeX export ────────────────────────────────────────────────
+#+LATEX_CLASS: report
+#+LATEX_CLASS_OPTIONS: [10pt,a4paper]
+
+#+MACRO: codebox @@latex:\fbox{\texttt{$1}}@@
+
+
+* Aparato lógico
+
+** Estructura del paquete =calcprop=
+
+# coding=utf8
+
+#+NAME: calcprop/__init__.py
+#+begin_src python :tangle src/calcprop/__init__.py :noweb no-export
+<<Aparato lógico de la librería>>
+#+end_src
+
+#+NAME: Aparato lógico de la librería
+#+begin_src python :noweb no-export
+<<Definición de la clase Proposicion>>
+<<Definición de la subclase v>>
+<<Definición de alguno y unoDe>>
+<<Definición de noDerivable>>
+<<Definición de la función span>>
+<<Definición de la función extension>>
+<<Definición de la función refuta>>
+<<Definición de la función test>>
+#+end_src
+
+El =<<Aparato auxiliar para la creación de problemas de opción múltiple>>=
+se desarrolla en el paquete =calcprop-quiz=.
+
+** Clase =Proposicion= y su subclase =v= (proposición atómica)
+
+Las proposiciones son expresiones formadas con números, strings y los símbolos
+#+begin_center
+=&=,\quad =|=,\quad =-=,\quad  =v( )=,\quad =>>=,\quad =**=,\quad =alguno=\quad y\quad  =unoDe=
+#+end_center
+construidas según las siguientes reglas:
+1. Si =D= es un número o un string (cadena de caracteres) entonces =v(D)= es una
+  subclase de =Proposicion= que denominaremos /``variable proposicional''/ o /``proposición atómica''/.
+2. Si =P=, =Q= y =R= son proposiciones también lo son:
+   - =P&Q= :: (conjunción)
+   - =P|Q= :: (disyunción)
+   - =-P= :: (negación)
+   - =P>>Q= :: (implicación)
+   - =P**Q= :: (equivalencia, es decir: /si y solo si/).
+   Para facilitar la elaboración expresiones, también incluimos dos operadores lógico menos habituales:
+   - =alguno(P,Q,R)= :: significa que alguna de las proposiciones de la lista es verdadera y
+   - =unoDe(P,Q,R)= :: significa que solo una de las proposiciones de la lista es verdadera.
+
+Ejemplo de proposición: ``llueve o no llueve''
+#+BEGIN_SRC jupyter-python :exports none :results none
+from calcprop import *
+#+END_SRC
+
+#+BEGIN_SRC jupyter-python
+v('llueve') | -v('llueve')
+#+END_SRC
+
+#+RESULTS:
+: v('llueve') | -v('llueve')
+
+Necesitamos que las proposiciones del tipo =v(D)= sean [[https://docs.python.org/3/glossary.html#term-hashable][/``hash-eables''/]], para poder ser utilizadas como claves en un diccionario.
+Para ello necesitamos los métodos =__hash__= y =__eq__=.
+
+Definamos la clase =Proposicion=
+#+NAME: Definición de la clase Proposicion
+#+begin_src python :noweb no-export
+class Proposicion:
+    def __init__(self,data):
+        self.data = data
+
+    def __hash__(self):
+        return hash(self.data)
+
+    def __eq__(self, another):
+        return hasattr(another, 'data') and self.data == another.data
+
+    <<Operadores lógicos de la clase Proposicion>>
+    <<Método de representación de la clase Proposicion>>
+#+end_src
+
+****** Las operaciones: conjunción, disyunción, negación, implicación y equivalencia.
+
+Definamos como métodos dentro de la clase =Proposicion= los cinco operadores lógicos habituales.
+Primero aquellos que usan /``métodos mágicos''/, es decir, aquellos que tiene asociado un símbolo para llamar a las operaciones:
+#+NAME: Operadores lógicos de la clase Proposicion
+#+begin_src python :noweb yes
+def __and__(self,other):
+    return Proposicion(['and', self, other])
+def __or__(self,other):
+    return Proposicion(['or', self, other])
+def __neg__(self):
+    return Proposicion(['not', self])
+def __rshift__(self,other):
+    return Proposicion(['implica', self, other])
+def __pow__(self,other):
+    return Proposicion(['equivale', self, other])
+
+#+end_src
+
+***** Las operaciones: =unoDe= y =alguno=.
+
+Para las dos siguientes operaciones[fn::no habituales, aunque convenientes pues facilitan la expresión de algunas proposiciones] no usamos ningún /``método mágico''/.
+Así que definirlas dentro de la clase nos obligaría a una incómoda escritura del tipo: =Proposicion.alguno(P1,P2,P3)= o =Proposicion.unoDe(P1,P2,P3)=.
+Para evitarlo, las definimos fuera de la clase; así podremos escribir sencillamente =alguno(P1,P2,P3)= y =unoDe(P1,P2,P3)=.
+#+NAME: Definición de alguno y unoDe
+#+begin_src python :noweb yes
+def alguno(X,*args):
+    return Proposicion(['alguno', X] + [a for a in args])
+def unoDe(X,*args):
+    return Proposicion(['unoDe',  X] + [a for a in args])
+
+#+end_src
+
+***** La operación: =noDerivable=.
+
+Esta función no es una operación lógica (como si lo son las anteriores).
+Es un ``añadido'' cuya motivación es la siguiente:
+
+El esquema típico de una pregunta es: el enunciado asume que las premisas =E1=, =E2=,\dots =En= son ciertas.
+Y se puede puede preguntar si =P= es consecuencia lógica de las premisas.
+Si lo es, =P= es =True= (es decir, $\texttt{premisas}\Rightarrow\texttt{P}$).
+Negar esto no es decir que =-P= es consecuencia de las premisas, sino que =P= no es derivable de las premisas (es decir, $\texttt{premisas}\not\Rightarrow\texttt{P}$).
+Así que añadimos la operación =noDerivable=.
+Esto nos permite, por ejemplo, que aunque para algunos enunciados se pueda preguntar si una matriz es diagonalizable, para otros evitemos la pregunta si no es deducible del enunciado.
+
+#+NAME: Definición de noDerivable
+#+begin_src python :noweb yes
+def noDerivable(X):
+    return Proposicion(['noDerivable', X])
+
+#+end_src
+
+*** La subclase =v= para proposiciones atómicas (i.e., para variables proposicionales)
+
+#+NAME: Definición de la subclase v
+#+begin_src python :noweb yes
+class v(Proposicion):
+    def __init__(self, data):
+        super().__init__(data)
+
+#+end_src
+
+** Valoración de proposiciones
+
+Una valoración es una función =T= que va del conjunto de proposiciones al conjunto ={True,False}= (es decir, a cada proposición le asigna el valor verdadero o el valor falso) y que verifica las siguientes propiedades: si =P= y =Q= son proposiciones entonces
+
+1. ~T(P & Q) = True~\quad únicamente en el caso de que\quad ~T(P) = True~\quad y\quad ~T(Q) = True~.
+2. ~T(P | Q) = False~\quad únicamente en el caso de que\quad ~T(P) = False~\quad y\quad ~T(Q) = False~.
+3. ~T(-P) = True~\quad únicamente en el caso de que\quad ~T(P) = False~.
+Por tanto:
+{{{codebox( T(P \& Q) = T(P) \& T(Q) )}}},\qquad
+{{{codebox( T(P | Q) = T(P) | T(Q) )}}}\quad y \quad
+{{{codebox( T(-P) = not T(P) )}}}.
+4. ~T(P >> Q) = False~\quad únicamente en el caso en que\quad ~T(P) = True~\quad y\quad ~T(Q) = False~.
+5. ~T(P ** Q) = True~\quad únicamente en el caso en que\quad ~T(P) = T(Q)~.
+Por tanto\quad
+{{{codebox( T(P >> Q) = T(-P | Q) )}}}
+\quad y\quad
+{{{codebox( T(P ** Q) = T( (P>>Q) \& (Q>>P) ) )}}}.
+
+Y si =A1,...An= son =n= proposiciones, entonces
+1. =alguno(A1,...,An)= es =True=\quad si y solo si\quad =A1 | alguno(A2,...,An)= es =True=,
+2. =unoDe(A1,...,An)= es =True=\quad si y solo si\quad =(A1 & -alguno(A2,...,An) | (-A1 & unoDe(A2,...,An))= es =True=;
+Por tanto
+#+begin_center
+{{{codebox( T( alguno(A1\,...\,An) ) = T( A1 | alguno(A2\,...\,An) ) )}}}
+#+end_center
+y
+#+begin_center
+{{{codebox( T( unoDe(A1\,...\,An) ) =  T( (A1 \& -alguno(A2\,...\,An)) | (-A1 \& unoDe(A2\,...\,An)) ) )}}}.
+#+end_center
+Cualquier función =F= que vaya del conjunto de proposicionales atómicas (es decir, del tipo =v('algo')=) al conjunto ={True,False}=
+se puede extender al resto proposiciones[fn::En la función =span= de Python hemos elegido el criterio de que a toda proposición =Prop= no incluida explícitamente en el diccionario =F= le asignamos el valor =False= para así completar el dominio de las proposiciones atómicas.
+Esta decisión ha sido completamente arbitraria, y se ha incluido para que efectivamente el dominio de =span= incluya todas las proposiciones atómicas (i.e., variables proposicionales).
+En cualquier caso =span= se ha programado a modo de ilustración, pues no la emplearemos para nada.]
+formando una valoración ~T=span(F)~, aplicando las reglas de arriba.
+Dicha extensión es única.
+
+Vamos a implementar como funciones los diccionarios de Python, pues los diccionarios son una colección de pares ='Etiqueta':valor= donde a cada etiqueta solo se le asigna un valor único.
+Por ejemplo, si definimos el siguiente diccionario ={'a':1 , 'a':0 , 'b':2=}, obtenemos un diccionario con dos elementos, donde a ='a'= se le a asignado solo uno de los dos valores introducidos (en concreto el último).
+#+BEGIN_SRC jupyter-python  :exports both
+print( {'a':1 , 'a':0 , 'b':2} )
+#+END_SRC
+
+#+RESULTS:
+: {'a': 0, 'b': 2}
+
+
+
+*** Función =span=
+
+Función =span(F, Prop)= indica si =Prop= es =True= o es =False= a partir de la función parcial =F=.
+- =F=: es un diccionario (función parcial) que asigna valores =True= o =False= a varias proposiciones atómicas.
+- =Prop=: es una =Proposicion= .
+Así obtenemos los siguientes resultados lógicos:
+#+BEGIN_SRC jupyter-python
+F = { v('llueve'):True }
+span(F, v('llueve') >> -v('llueve') )
+#+END_SRC
+
+#+RESULTS:
+: False
+y por otra parte
+#+BEGIN_SRC jupyter-python
+span(F, -v('llueve') >> v('llueve') )
+#+END_SRC
+
+#+RESULTS:
+: True
+
+**** Implementación
+
+Si una proposición =Prop= (de tipo atómico) está en la función parcial =F= y además es verdadera, =span= devuelve =True=.
+En caso contrario devuelve =False= (tanto si =Prop= no está en =F= como si lo está pero es =False=).
+Si =Prop= no es de tipo atómico, entonces se aplican las reglas para reducir =Prop= a proposiciones de tamaño más pequeño.
+
+#+NAME: Definición de la función span
+#+begin_src python :noweb no-export
+def span(F, Prop):
+    if type(Prop) == type(v('')):
+        return (Prop in F) and F[Prop]
+    <<Aplicación de las reglas para reducir el tamaño de Prop>>
+
+#+end_src
+
+#+NAME: Aplicación de las reglas para reducir el tamaño de Prop
+#+begin_src python :noweb yes
+elif Prop.data[0] == 'and':
+    return span(F, Prop.data[1]) and span(F, Prop.data[2])
+
+elif Prop.data[0] == 'or':
+    return span(F, Prop.data[1]) or span(F, Prop.data[2])
+
+elif Prop.data[0] == 'not':
+    return not span(F, Prop.data[1])
+
+elif Prop.data[0] == 'implica':
+    return (not span(F, Prop.data[1])) or span(F, Prop.data[2])
+
+elif Prop.data[0] == 'equivale':
+    return span(F, Prop.data[1]) == span(F, Prop.data[2])
+
+elif Prop.data[0] == 'alguno':
+    return span(F,Prop.data[1]) or span(F,alguno(Prop.data[2:])) if len(Prop.data)>2\
+      else span(F,Prop.data[1])
+
+elif Prop.data[0] == 'unoDe':
+    A = Prop.data[1]
+    if len(Prop.data)==2:
+        return span(F, A)
+    else:
+        B = Proposicion(['alguno'] + Prop.data[2:])
+        C = Proposicion(['unoDe']  + Prop.data[2:])
+        return span(F, (A&-B) | (-A&C) )
+#+end_src
+
+** Función  =extension= que extiende una función parcial
+
+Ahora queremos definir una función de Python (que denominamos =extension=) que,
+dadas una lista =objetivo= y un diccionario con =valores=,
+para una colección de proposiciones atómicas haga crecer (extienda) el diccionario =valores= con nuevas proposiciones atómicas, y sus correspondientes valores,
+necesarios para que se cumplan los pares contenidos en la lista =objetivo=;
+o bien que devuelva el diccionario vacío ={}= en caso de que sea imposible hacer cumplir dicha lista =objetivo=.
+
+La diferencia entre la lista =objetivo= y los =valores= es que en =objetivo= se asignan valores a proposiciones (arbitrarias) pero en =valores= solo se asignan valores a /proposiciones atómicas/.
+
+El diccionario extendido es un /modelo lógico/ en el que se cumplen la lista =objetivo= y la función parcial =valores=.
+Ello no quiere decir que no puedan existir otros modelos que consigan lo mismo.
+
+Ejemplo:
+#+BEGIN_SRC jupyter-python
+print( extension( [ (v('llueve') >> -v('llueve') , True) ], {v('basilisco') : True}) )
+#+END_SRC
+
+#+RESULTS:
+: {v('basilisco'): True, v('llueve'): False}
+
+
+Ejemplo:
+#+BEGIN_SRC jupyter-python
+print( extension( [ (v('llueve'),True), (-v('llueve'),True)], {v('basilisco') : True}) )
+#+END_SRC
+
+#+RESULTS:
+: {}
+
+
+*** Implementación de la función  =extension=
+
+Función ~extension(objetivo, valores, premisas=[])~
+
+- =objetivo=: es una lista de pares =(P,VF)= donde =P= es una proposición y =VF= es =True= o =False=
+
+- =valores=: es un diccionario (función parcial) que asigna valores =True= o =False= a variables proposicionales
+
+- =premisas=: es la lista de premisas a partir de la cual se deduce si una proposición es derivable o no (es decir, es solo para usar la operación =noDerivable=)
+
+La función =extension= tiene dos posibles salidas:
+o bien devuelve un modelo lógico =M= que extiende a =valores= de tal forma que =span(M,P)=VF= para cada par =(P,VF)= de =objetivo=,
+o el diccionario vacío ={}= si no existe tal modelo =M=.
+Es decir,
+busca una forma de dar valores a las proposiciones atómicas de modo que todas las proposiciones contenidas en el =objetivo= alcancen el valor deseado.
+
+**** Implementación
+
+Si la lista =objetivo= no tiene pares, con la propia función =valores=, hemos acabado.
+
+La definición de la función =extension= es recursiva.
+La mecánica es la siguiente: se sustituye el proposición del primer objetivo por proposiciones de menor tamaño[fn::Una lista de símbolos más corta], y entonces se llama a si misma.
+Este procedimiento reduce las proposiciones hasta obtener proposiciones atómicas.
+
+Así pues, llamamos =Obj= al primer objetivo de la lista, =P= a la correspondiente proposición y =VF= a su valor objetivo.
+Por tanto =Obj = (P,VF)= es el primer par de la lista =objetivo=.
+
+Comprobamos que =P.data= es una =list= y tratamos los distintos casos de reducción de predicado.
+
+#+NAME: Definición de la función extension
+#+begin_src python :noweb no-export :coments noweb
+def extension(objetivo, valores, premisas=[]):
+    if objetivo == []:
+        return valores
+
+    Obj = objetivo[0]
+    P   = Obj[0]
+    VF  = Obj[1]
+    if isinstance(P.data,list):
+        <<Reducción de una proposición de tipo "not">>
+        <<Reducción de una proposición de tipo "and">>
+        <<Reducción de una proposición de tipo "or">>
+        <<Reducción de una proposición de tipo "implica">>
+        <<Reducción de una proposición de tipo "equivale">>
+        <<Reducción de una proposición de tipo "alguno">>
+        <<Reducción de una proposición de tipo "unoDe">>
+        <<Proposición de tipo "noDerivable">>
+    <<Proposición atómica v>>
+#+end_src
+
+*** Reducción de proposiciones NO atómicas
+
+***** Reducción de una proposición de tipo ``not''.
+
+  En el caso de que =Obj = (-A,True)=, nos vale la misma función que obtenemos si remplazamos =Obj= por =(A,False)=.
+  Y en el caso de que =Obj = (-A,False)=, nos vale la misma función si remplazamos =Obj= por =(A,True)=.
+#+NAME: Reducción de una proposición de tipo "not"
+#+begin_src python :noweb yes
+if P.data[0] == 'not' :
+    A = P.data[1]
+    return extension( [(A, not VF)] + objetivo[1:], valores, premisas )
+#+end_src
+
+***** Reducción de una proposición de tipo ``and''.
+
+  En el caso de que =Obj=(A & B, True)=, nos vale la misma función que obtenemos si remplazamos =Obj= por =(A,True), (B,True)=.
+  Y en el caso de que =Obj=(A & B, False)=, vale tanto la función que obtenemos de remplazar =Obj= por =(A,False)= como la que obtenemos al remplazar =Obj= por =(B,False)=.
+
+  Si la primera alternativa resulta en una extensión vacía se devuelve la segunda.
+#+NAME: Reducción de una proposición de tipo "and"
+#+begin_src python :noweb yes
+elif P.data[0] == 'and':
+    A = P.data[1]
+    B = P.data[2]
+    if(VF):
+        return extension([ (A,True), (B,True) ] + objetivo[1:], valores, premisas)
+    else:
+        r = extension( [(A,False)] + objetivo[1:],valores,premisas)
+        return extension([(B,False)]+objetivo[1:],valores,premisas) if not r else r
+
+#+end_src
+
+***** Reducción de una proposición de tipo ``or''.
+
+  En el caso de que =Obj=( A|B, False)=, nos vale la misma función que obtenemos si remplazamos =Obj= por =(A,False), (B,False)=.
+  Y en el caso de que =Obj=( A&B, True)=, vale tanto la función que obtenemos de remplazar =Obj= por =(A,True)= como la que obtenemos al remplazar =Obj= por =(B,True)=.
+
+  Si la primera alternativa resulta en una extensión vacía se devuelve la segunda.
+#+NAME: Reducción de una proposición de tipo "or"
+#+begin_src python :noweb yes
+elif P.data[0] == "or":
+    A = P.data[1]
+    B = P.data[2]
+    if not VF:
+        return extension([(A,False),(B,False)] + objetivo[1:], valores, premisas)
+    else:
+        r = extension([(A,True)] + objetivo[1:], valores, premisas)
+        return extension([(B,True)]+objetivo[1:],valores, premisas) if not r else r
+
+#+end_src
+
+***** Reducción de una proposición de tipo ``implica''.
+
+  En el caso de que =Obj=( A>>B, VF)=, nos vale la misma función que obtenemos si emplazamos =Obj= por =( -A|B, VF)=.
+#+NAME: Reducción de una proposición de tipo "implica"
+#+begin_src python :noweb yes
+elif P.data[0] == "implica":
+    A = P.data[1]
+    B = P.data[2]
+    return extension([ ( -A|B, VF) ] + objetivo[1:], valores, premisas)
+#+end_src
+
+***** Reducción de una proposición de tipo ``equivale''.
+
+  En el caso de que =Obj=( A**B, VF)=, nos vale la misma función que obtenemos si remplazamos =Obj= por =( (A>>B) & (B>>A), VF)=.
+#+NAME: Reducción de una proposición de tipo "equivale"
+#+begin_src python :noweb yes
+elif P.data[0] == "equivale":
+    A = P.data[1]
+    B = P.data[2]
+    return extension([( (A>>B) & (B>>A), VF)] + objetivo[1:], valores, premisas)
+#+end_src
+
+***** Reducción de una proposición de tipo ``alguno''.
+
+  En caso de que =Obj = (alguno(A), VF)= (i.e., la lista de alternativas solo contiene la proposición =A=) nos vale la misma función que =(A, VF)=.
+  Si por el contrario =Obj = (alguno(A1,...An) ,VF)=, con =n>1=, nos vale la misma función que obtenemos si remplazamos =Obj= por =( A1|alguno(A2,...,An), VF)= (i.e., la primera o alguna de las demás).
+#+NAME: Reducción de una proposición de tipo "alguno"
+#+begin_src python :noweb yes
+elif P.data[0] == "alguno":
+    A = P.data[1]
+    if len(P.data)==2:
+        return extension([(A,VF)] + objetivo[1:], valores, premisas)
+    else:
+        B = Proposicion(["alguno"] + P.data[2:])
+        return extension([( A|B, VF)] + objetivo[1:], valores, premisas)
+#+end_src
+
+***** Reducción de una proposición de tipo ``unoDe''.
+
+  En caso de que =Obj=(unoDe(A), VF)= (i.e., la lista de alternativas solo contiene la proposición =A=) nos vale la misma función que =(A,VF)=.
+  Si por el contrario =Obj=(unoDe(A1,...An), VF)=, con =n>1=, nos vale la misma función que obtenemos si remplazamos =Obj= por =( A1 & -alguno(A2,...An) | -A1 & unoDe(A2,...,An), VF)=.
+#+NAME: Reducción de una proposición de tipo "unoDe"
+#+begin_src python :noweb yes
+elif P.data[0] == "unoDe":
+    A = P.data[1]
+    if len(P.data)==2:
+        return extension([(A,VF)] + objetivo[1:], valores, premisas)
+    else:
+        B = Proposicion(["alguno"] + P.data[2:])
+        C = Proposicion(["unoDe"] + P.data[2:])
+        return extension([( (A&-B) | (-A&C), VF)] + objetivo[1:], valores, premisas)
+#+end_src
+
+*** Proposición no derivable de un conjunto de =premisas=
+
+La función =extension= tiene un tercer argumento (=premisas=) que es un ``añadido'' para decidir si una proposición es =noDerivable= de la lista de =premisas=.
+
+Derivable significa que la proposición es consecuencia lógica de las =premisas=, por consiguiente es imposible que sea falso si las =premisas= son ciertas.
+
+#+NAME: Proposición de tipo "noDerivable"
+#+begin_src python :noweb yes
+elif P.data[0] == "noDerivable":
+    A = P.data[1]
+    valoresExt = valores.copy()
+    valoresExt[v(repr(P))] = VF
+
+    derivable = not extension([(A,False)] + premisas, {}, premisas)
+
+    return extension(objetivo[1:],valores2,premisas) if not derivable == VF else {}
+
+#+end_src
+
+*** ... cuando llegamos a una proposición atómica (o /variable proposicional/)
+
+En el caso de que =Obj = (v(D), VF)=, es cuando el algoritmo recursivo pasará a intentar un nuevo objetivo (extendiendo el diccionario =valores= si fuera necesario), o bien parará por ser el par objetivo =(v(D), VF)= imposible.
+
+Primero se comprueba si el par =(v(D), VF)= ya estaba en el diccionario =valores=, es decir, si =valores= contiene la proposición atómica =v(D)= y con el valor =VF=.
+En tal caso, se ``salta'' al siguiente objetivo (es decir se llama al =extension= con el mismo diccionario =valores= pero quitando de la lista =objetivo= el primer elemento.
+Si =v(D)= pertenece al diccionario =valores= pero *con un valor distinto* a =VF=, quiere decir que el objetivo es imposible de alcanzar, por lo que se devuelve un diccionario vacío, y la recursión ha terminado.
+
+Si =P= es una proposición atómica que no estaba en el diccionario =valores=, entonces creamos un nuevo diccionario extendido (=valoresExt=) que incluya =P= y su valor =VF=; y entonces llamamos a =extension= pero quitando el primer objetivo de la lista y usando un diccionario ``extendido'' (=valoresExt=).
+Para evitar los efectos colaterales de modificar un diccionario, modificamos una copia
+
+#+NAME: Proposición atómica v
+#+begin_src python :noweb yes
+else:
+    if P in valores:
+        return extension(objetivo[1:], valores, premisas) if valores[P]==VF else {}
+    else:
+        valoresExt    = valores.copy()
+        valoresExt[P] = VF
+        return extension(objetivo[1:], valoresExt, premisas)
+#+end_src
+
+** Función que =refuta= una proposición a partir de un conjunto de =premisas=
+
+Refutar una proposición, consiste en asignar un valor a cada variable proposicional (cada proposición atómica), de tal modo que el resultado sea falso.
+
+La función =refuta= construye un modelo =M= (asignación de valores a las proposiciones atómicas) de forma que =span(M,P)=False= y =span(M,h)=True= para todo =h= en =premisas=.
+
+Si esto no es posible refutar =P= a partir de las =premisas=, entonces la función =refuta= devuelve un modelo (un diccionario) vacío; esto quiere decir que la proposición =P= es irrefutable, es decir, $\text{=premisas=}\Rightarrow\text{=P=}$.
+Es decir, si se refuta es que no es derivable de las premisas (no es consecuencia lógica de las premisas).
+#+NAME: Definición de la función refuta
+#+begin_src python :noweb yes
+def refuta(P, premisas=[]):
+    h=[(Q,True) for Q in premisas]
+    return extension([(P,False)]+h, {}, h)
+
+#+end_src
+
+** Función  =test=
+
+Función =test(P,premisas)=
+
+- =P=: es una proposición o cualquiera de los valores =True=, =False=.
+- =premisas=: es una lista de proposiciones
+
+La función =test= se utiliza tanto para saber si se da una precondición, como para saber el resultado correcto de una cuestión.
+
+En el caso de que =P= sea una proposición, sólo devuelve =True= si es imposible refutarlo a partir de las =premisas=, es decir, es imposible que =P= sea falso si las =premisas= son verdad (=premisas= $\Rightarrow$ =P=, i.e., =P= es derivable).
+
+#+NAME: Definición de la función test
+#+begin_src python :noweb yes
+def test(P,premisas=[]):
+    if P == True:
+        return True
+    if P == False:
+        return False
+    else:
+        return True if not refuta(P, premisas) else False
+
+#+end_src
+
+** Representación de la clase =Proposicion=
+
+#+NAME: Método de representación de la clase Proposicion
+#+begin_src python :noweb yes
+def __repr__(self):
+    if isinstance(self.data,list):
+        if self.data[0] == "and":
+            return repr(self.data[1]) + " & "+ repr(self.data[2])
+        if self.data[0] == "or":
+            return repr(self.data[1]) + " | "+ repr(self.data[2])
+        if self.data[0] == "not":
+            return "-" + repr(self.data[1])
+        if self.data[0] == "implica":
+            return repr(self.data[1]) + " >> "+ repr(self.data[2])
+        if self.data[0] == "equivale":
+            return repr(self.data[1]) + " ** "+ repr(self.data[2])
+        if self.data[0] == "unoDe":
+            return "unoDe("+','.join([repr(x) for x in self.data[1:]]) +")"
+        if self.data[0] == "noDerivable":
+            return "noDerivable("+repr(self.data[1]) +")"
+
+    else:
+        return 'v('+repr(self.data)+')'
+#+end_src

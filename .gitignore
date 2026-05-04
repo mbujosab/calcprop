@@ -1,0 +1,26 @@
+# Entorno virtual
+.venv/
+
+# Emacs temporales
+\#*\#
+.\#*
+*.elc
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# LaTeX auxiliares
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+
+# Salida generada por los ejemplos
+ejemplos/

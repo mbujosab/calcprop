@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "calcprop"
+version = "0.1.0"
+description = "Propositional calculus library"
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.9"
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/mbujosab/calcprop"
+Source   = "https://github.com/mbujosab/calcprop"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/calcprop"]

@@ -1,0 +1,744 @@
+#+TITLE: calcprop-export — exportación a AMC, Moodle y Jupyter
+#+LANGUAGE: es
+#+OPTIONS: toc:t num:t H:4
+#+STARTUP: overview
+
+# ─── Configuración de org-babel ───────────────────────────────────
+#+PROPERTY: header-args:python :noweb yes
+#+PROPERTY: header-args:jupyter-python :kernel calcprop
+
+# ─── LaTeX export ────────────────────────────────────────────────
+#+LATEX_CLASS: report
+#+LATEX_CLASS_OPTIONS: [10pt,a4paper]
+
+
+* Dando formato a las preguntas
+
+** Estructura del paquete =calcprop-export=
+
+#+NAME: calcprop_export/__init__.py
+#+begin_src python :tangle src/calcprop_export/__init__.py :noweb no-export
+from calcprop_quiz import *
+
+<<Formato AMC>>
+<<Formato AMC Verdadero/Falso>>
+<<Formato AMC version Profe>>
+<<Formato AMC con lastchoice>>
+<<Formato AMC y multicolumna>>
+<<Formato AMC y multicolumna version Profe>>
+<<Formato AMC con lastchoice y multicolumna>>
+
+<<Método codchar para codificar caracteres no ASCII en \LaTeX{}>>
+
+<<Quiz para Moodle>>
+<<Quiz para Moodle con valores>>
+<<Quiz para Moodle versión Profe>>
+<<Quiz para Moodle versión Profe con valores>>
+<<Quiz VF para Moodle>>
+<<Formato Moodle de preguntas de elección múltiple>>
+<<Formato Moodle de preguntas de elección múltiple para el Profe>>
+
+<<Quiz para Moodle con LastChoice>>
+<<Quiz para Moodle con LastChoice con valores>>
+<<Quiz VF para Moodle con LastChoice>>
+<<Formato Moodle de preguntas de elección múltiple con LastChoice>>
+
+<<Quiz para Jupyter>>
+
+#+end_src
+
+** Preguntas en LaTeX para usar con [[https://www.auto-multiple-choice.net/][Auto-Multiple-Choice]]
+
+Recorremos con un bucle la lista =cuestiones= de manera que, en cada iteración, =c= es una nueva cuestión.
+Si =c[2]= es cierta (si se verifica la precondición necesaria para formular la cuestión),
+añadimos dicha cuestión en la cadena de cuestiones =s= del siguiente modo:
+si la cuestión es verdadera (si ~c[1]==True~) escribimos ~\correctchoice{~; y si no, escribimos ~\wrongchoice{~.
+Seguidamente escribimos el enunciado de la cuestión, =c[0]=, cerramos el comando de \LaTeX{} y saltamos de línea de texto, ~}\n~.
+#+NAME: Escritura de las cuestiones
+#+begin_src python :noweb yes
+for c in cuestiones:
+    if c[2]:
+        s = s + '       ' \
+               + ('\\correctchoice{' if c[1] else '\\wrongchoice  {') + c[0] + '}\n'
+#+end_src
+
+En el caso de las preguntas en versión para el profe, si =c[2]= no es cierta, añadimos dicha cuestión en la cadena =ex= de /cuestiones excluidas/, seguida de un punto y coma y la proposición =c[1]= correspondiente a dicha cuestión.
+Así, en el formato AMC para el profesor aparecerá, en la parte de explicación de cada pregunta, el listado de preguntas excluidas dado el enunciado de esa pregunta.
+
+#+NAME: Escritura de las cuestiones para el Profe
+#+begin_src python :noweb yes
+for c in cuestiones:
+    if c[2]:
+        s = s + '       ' \
+              + ('\\correctchoice{' if c[1] else '\\wrongchoice  {') + c[0] + '}\n'
+    else:
+        ex = ex + ' cuestion: ' + c[0] + '; ' + c[1] + '\n'
+#+end_src
+
+Cada variante tendrá una opción correcta si también añadimos la opción: /``ninguna de las anteriores es correcta''/.
+El comando =\lastchoices\n= asegura que ésta sea la última.
+Indicamos que es incorrecta si alguna de las opciones en la lista =cuestiones= es =True=, o que ésta es la opción correcta en caso contrario.
+#+NAME: Inclusión de lastchoice
+#+begin_src python :noweb yes
+s = s + '       ' + '\\lastchoices\n'
+s = s + '       ' \
+      + ('\\wrongchoice  {'if any([c[1] for c in cuestiones])else'\\correctchoice{')\
+      + OpcPorDefecto + '}\n'
+#+end_src
+
+*** Variante para preguntas Verdadero/Falso
+
+Las preguntas de ejercicios del tipo Verdadero/Falso no tienen pre-condición, por tanto =c[2]= no existe.
+#+NAME: Escritura de las cuestiones de tipo Verdadero/Falso
+#+begin_src python :noweb yes
+for c in cuestiones:
+    s = s + (" " * 7) + ( r'\correctchoice{' if c[1] else r'\wrongchoice{' ) + c[0] + '}\n'
+#+end_src
+
+***** Formatos para [[https://www.auto-multiple-choice.net/][AMC]]
+
+#+NAME: Formato AMC
+#+begin_src python :noweb yes
+def AMC (nombre, etiqueta, enunciado, cuestiones, opc=["","Ninguna de las anteriores"]):
+    InstruccionesAux = opc[0]
+    OpcPorDefecto    = opc[1]
+    s = '\\element{' + nombre + '}{' + InstruccionesAux + '\n'
+    s = s + ' \\begin{questionmult}{' + nombre + '-' + str(etiqueta) + '}\n'
+    s = s + '  ' + enunciado + '\n'
+
+    s = s + '     \\begin{choices}\n'
+    <<Escritura de las cuestiones>>
+    s = s + '     \\end{choices}\n'
+
+    s = s + ' \\end{questionmult} '
+    s = s + '}\n\n'
+    return s
+#+end_src
+
+#+NAME: Formato AMC Verdadero/Falso
+#+begin_src python :noweb yes
+def AMC_VF (nombre, etiqueta, enunciado, cuestiones, opc=["","Ninguna de las anteriores"]):
+    InstruccionesAux = opc[0]
+    OpcPorDefecto    = opc[1]
+    s = '\\element{' + nombre + '}{' + InstruccionesAux + '\n'
+    s = s + ' \\begin{questionmult}{' + nombre + '-' + str(etiqueta) + '}\n'
+    s = s + '  ' + enunciado + '\n'
+
+    s = s + '     \\begin{choices}\n'
+    <<Escritura de las cuestiones de tipo Verdadero/Falso>>
+    s = s + '     \\end{choices}\n'
+
+    s = s + ' \\end{questionmult} '
+    s = s + '}\n\n'
+    return s
+#+end_src
+
+
+
+#+NAME: Formato AMC version Profe
+#+begin_src python :noweb yes
+def AMCProfe (nombre, etiqueta, enunciado, cuestiones, opc=["","Ninguna de las anteriores"]):
+    InstruccionesAux = opc[0]
+    OpcPorDefecto    = opc[1]
+    ex = ''
+    s = '\\element{' + nombre + '}{' + InstruccionesAux + '\n'
+    s = s + ' \\begin{questionmult}{' + nombre + '-' + str(etiqueta) + '}\n'
+    s = s + '  ' + enunciado + '\n'
+
+    s = s + '     \\begin{choices}\n'
+    <<Escritura de las cuestiones para el Profe>>
+    s = s + '     \\end{choices}\n'
+    if ex:
+        s = s + '   \\explain{' + ex + '            }\n'
+    s = s + ' \\end{questionmult} '
+    s = s + '}\n\n'
+    return s
+#+end_src
+
+#+NAME: Formato AMC con lastchoice
+#+begin_src python :noweb yes
+def AMClastCh (nombre, etiqueta, enunciado, cuestiones, opc=["","Ninguna de las anteriores"]):
+    InstruccionesAux = opc[0]
+    OpcPorDefecto    = opc[1]
+    s = '\\element{' + nombre + '}{' + InstruccionesAux + '\n'
+    s = s + ' \\begin{questionmult}{' + nombre + '-' + str(etiqueta) + '}\n'
+    s = s + '  ' + enunciado + '\n'
+
+    s = s + '     \\begin{choices}\n'
+    <<Escritura de las cuestiones>>
+    <<Inclusión de lastchoice>>
+    s = s + '     \\end{choices}\n'
+
+    s = s + ' \\end{questionmult} '
+    s = s + '}\n\n'
+    return s
+#+end_src
+
+#+NAME: Formato AMC y multicolumna
+#+begin_src python :noweb yes
+def AMCmc (nombre, etiqueta, enunciado, cuestiones, c, opc=["","Ninguna de las anteriores"]):
+    InstruccionesAux = opc[0]
+    OpcPorDefecto    = opc[1]
+    s = '\\element{' + nombre + '}{' + InstruccionesAux + '\n'
+    s = s + ' \\begin{questionmult}{' + nombre + '-' + str(etiqueta) + '}\n'
+    s = s + '  ' + enunciado + '\n'
+    s = s + '   \\begin{multicols}{' + str(c) + '}\\AMCBoxedAnswers\n'
+    s = s + '     \\begin{choices}\n'
+    <<Escritura de las cuestiones>>
+    s = s + '     \\end{choices}\n'
+    s = s + '   \\end{multicols}\n'
+    s = s + ' \\end{questionmult} '
+    s = s + '}\n\n'
+    return s
+#+end_src
+
+#+NAME: Formato AMC y multicolumna version Profe
+#+begin_src python :noweb yes
+def AMCmcProfe (nombre, etiqueta, enunciado, cuestiones, c, opc=["","Ninguna de las anteriores"]):
+    InstruccionesAux = opc[0]
+    OpcPorDefecto    = opc[1]
+    ex = ''
+    s = '\\element{' + nombre + '}{' + InstruccionesAux + '\n'
+    s = s + ' \\begin{questionmult}{' + nombre + '-' + str(etiqueta) + '}\n'
+    s = s + '  ' + enunciado + '\n'
+    s = s + '   \\begin{multicols}{' + str(c) + '}\\AMCBoxedAnswers\n'
+    s = s + '     \\begin{choices}\n'
+    <<Escritura de las cuestiones para el Profe>>
+    s = s + '     \\end{choices}\n'
+    s = s + '   \\end{multicols}\n'
+    if ex:
+        s = s + '   \\explain{' + ex + '            }\n'
+    s = s + ' \\end{questionmult} '
+    s = s + '}\n\n'
+    return s
+#+end_src
+
+#+NAME: Formato AMC con lastchoice y multicolumna
+#+begin_src python :noweb yes
+def AMClastChmc (nombre, etiqueta, enunciado, cuestiones, c, opc=["","Ninguna de las anteriores"]):
+    InstruccionesAux = opc[0]
+    OpcPorDefecto    = opc[1]
+    s = '\\element{' + nombre + '}{' + InstruccionesAux + '\n'
+    s = s + ' \\begin{questionmult}{' + nombre + '-' + str(etiqueta) + '}\n'
+    s = s + '  ' + enunciado + '\n'
+    s = s + '   \\begin{multicols}{' + str(c) + '}\\AMCBoxedAnswers\n'
+    s = s + '     \\begin{choices}\n'
+    <<Escritura de las cuestiones>>
+    <<Inclusión de lastchoice>>
+    s = s + '     \\end{choices}\n'
+    s = s + '   \\end{multicols}\n'
+    s = s + ' \\end{questionmult} '
+    s = s + '}\n\n'
+    return s
+#+end_src
+
+*** Ejemplo de uso
+
+#+NAME: EjemploVFamc.py
+#+BEGIN_SRC python :results none :tangle ../../examples/EjemploVFamc.py :noweb yes
+from calcprop_export import *
+
+enunciado = "Indique qué afirmaciones son verdaderas:"
+banco = [
+     ("Todo alumno que va a clase aprueba",   False),
+     ("Todo alumno que suspende va a clase",  False),
+     ("Todo alumno que sabe aprueba",         True ),
+     ("Si aprueban todos eres buen profesor", False),
+     ("Si suspenden todos eres mal profesor", False),
+     ("Si suspenden todos es frustrante",     True ),]
+GenVar = iter( ProblemaVF (enunciado, banco, 3) ) # tres preguntas por variante
+
+nombre     = "EjemploVF"
+directorio = "../ejemplos/"
+with open(directorio + nombre + ".tex","w") as f:
+    for i in range(4):                            # cuatro variantes
+        var = (next(GenVar))
+        f.write(AMC_VF(nombre,var[0],var[1],var[2]))
+#+END_SRC
+
+** Preguntas en =xml= para usar con Moodle
+
+Para generar los ficheros =xml= vamos a seguir un método
+indirecto. El motivo es que escribir en =xml= puede ser tedioso
+debido a los caracteres no ASCII y las expresiones matemáticas de
+LaTeX. La solución más práctica que he encontrado es generar desde
+Python un fichero LaTeX que a su vez emplea el paquete
+[[https://ctan.org/pkg/moodle][moodle]]. Así, al
+compilar el fichero de LaTeX con =pdflatex= obtendremos, tanto
+una versión en pdf de las preguntas (¡Algo mucho más cómodo a la hora
+de trabajar), como un fichero =xml= para ser importado en
+Moodle. Además, este método indirecto nos evita generar la estructura
+de los ficheros de preguntas en =xml= al estilo Moodle\dots !la
+estructura en LaTeX es mucho más sencilla! (o al menos, más
+familiar).
+
+#+NAME: Preámbulo fichero \LaTeX{} con paquete moodle
+#+begin_src python :noweb yes
+s = "\\documentclass[11pt]{article}\n\n"
+s = s + "\\usepackage[cm,headings]{fullpage}\n\n"
+s = s + "\\usepackage{moodle}\n\n"
+s = s + "\\usepackage{graphicx}\n\n"
+s = s + "\\usepackage{fancyvrb}\n\n"
+s = s + "\\ifPDFTeX                     % FOR LATEX and PDFLATEX\n"
+s = s + "    \\usepackage[utf8]{inputenc}   % necessary\n"
+s = s + "    \\usepackage[OT1] {fontenc}    % necessary\n"
+s = s + "\\else                         % assuming XELATEX or LUALATEX\n"
+s = s + "    \\usepackage{fontspec}\n"
+s = s + "\\fi\n\n"
+s = s + auxLaTeX + "\n" + "\\newcommand\\peque{}" + "\n\n"
+s = s + "\\begin{document}\n\n"
+#+end_src
+
+Con las cuestiones de opción múltiple, el 100\% de la nota de la
+pregunta se obtiene si se marcan todas las correctas (indicadas con
+=\item*= y el 100\% de la nota se pierde si se marcan todas la
+incorrectas (las que aparecen con =\item =).
+
+*Advertencia:* Lamentablemente Moodle no permite que la
+puntuación global de ninguna pregunta de opción múltiple sea negativa
+(es imposible que las preguntas de opción múltiple tengan esperanza
+nula; en contraste con
+[[https://www.auto-multiple-choice.net/][AMC]], donde se puede
+programar cualquier regla de puntuación).
+
+#+NAME: Escritura de las cuestiones para Moodle
+#+begin_src python :noweb yes
+for c in cuestiones:
+    fb = c[3] if len(c) > 3 else ''
+    s = s + "       " + ( itemBuena(fb) if c[1] else itemMala(fb) ) + codchar(c[0]) + "\n"
+#+end_src
+
+#+NAME: Escritura de las cuestiones para Moodle para el Profe
+#+begin_src python :noweb yes
+for c in cuestiones:
+    if c[2]:
+        s = s + '       ' + (itemBuena(b,c[3]) if c[1] else itemMala(m,c[3])) + codchar(c[0]) + "\n"
+    else:
+        ex = ex + ' cuestion: ' + c[0] + '; ' + c[1] + '\n'
+#+end_src
+
+Si ninguna respuesta es correcta, al compilar el fichero de LaTeX
+obtendremos un error (Moodle exige que al menos haya una respuesta
+correcta). Por ello, podemos incluir la opción \emph{``Las demás
+  respuestas son incorrectas''}. Lamentablemente, Moodle tampoco tiene
+un comando del tipo =\lastchoice=, que fuerza a que esta opción
+aparezca en último lugar aunque se barajen las opciones; por eso pongo
+/las demás/ en lugar de /las anteriores/ como en los exámenes
+con [[https://www.auto-multiple-choice.net/][AMC]]. Esta opción
+será falsa si alguna de las demás es =True=.
+
+<<cuestion alternativa por defecto para Moodle>>
+#+NAME: cuestion alternativa por defecto para Moodle
+#+begin_src python :noweb yes
+v = [c[1] for c in cuestiones].count(True)
+cuestiones = cuestiones + [(codchar(lastchoice), (False if v else True), 1, '')]
+#+end_src
+
+*** =QuizMoodle=, =QuizMoodleLastCh=, =QuizVFMoodle= y =QuizVFMoodleLastCh=
+
+=QuizMoodle= genera un archivo LaTeX con las variantes de un =ProblemaTipo=.
+Sus argumentos son el =nombre= del =ProblemaTipo=, el =directorio= donde queremos crear el fichero de LaTeX, y la lista =problema= que contiene las variantes.
+La cadena =s= contiene el preámbulo del archivo.
+A la cadena =s= se le concatena el inicio del entorno =quiz=, cuyo primer argumento es el =nombre= del problema (del que escribiremos las distintas versiones).
+
+- Con =with open()= creamos el archivo =nombre.tex= en el =directorio= que hayamos indicado; y entonces
+  - Escribimos la cadena =s= en dicho archivo.
+
+  - Luego recorremos todas las =var=iantes de la lista =problema= con un =for=.
+    Por cada variante llamamos a =MoodleMulti= para escribir una pregunta de opción múltiple con los argumentos =nombre=, número de variante (=var[0]=), enunciado de la variante (=var[1]=), y las cuestiones de la variante (=var[2]=).
+
+  - Una vez terminado el bucle =for=, escribimos el cierre del entorno =quiz= y el final del documento de LaTeX.
+
+#+NAME: Método auxiliar que transforma un objeto en diccionario si no era ya un diccionario
+#+begin_src python :noweb yes
+def creaDiccionario(x, key='key'):
+    return x if isinstance(x, dict) else {key: x}
+#+end_src
+
+#+NAME: Quiz para Moodle
+#+begin_src python :noweb no-export
+def QuizMoodle (nombre, directorio, problema, opc=["",""]):
+    <<Método auxiliar que transforma un objeto en diccionario si no era ya un diccionario>>
+    problema = creaDiccionario(problema, nombre)
+    auxLaTeX = opc[0]
+    <<Preámbulo fichero \LaTeX{} con paquete moodle>>
+    s = s + "\\begin{quiz}{" + nombre + "}\n\n"
+    with open(directorio + nombre + ".tex","w") as f:
+        f.write(s)
+        for i,nom in enumerate(problema):
+            for var in problema[nom]:
+                f.write( MoodleMulti(codchar(nom), var[0], codchar(var[1]), var[2]) )
+        f.write("\\end{quiz}\n\n\\end{document}\n")
+
+#+end_src
+
+#+NAME: Quiz para Moodle con valores
+#+begin_src python :noweb no-export
+def QuizMoodleConVariables (nombre, directorio, problema, environment, Valores, opc=["",""]):
+    <<Método auxiliar que transforma un objeto en diccionario si no era ya un diccionario>>
+    problema = creaDiccionario(problema, nombre)
+    auxLaTeX = opc[0]
+    <<Preámbulo fichero \LaTeX{} con paquete moodle>>
+    s = s + "\\begin{quiz}{" + nombre + "}\n\n"
+    with open(directorio + nombre + ".tex","w") as f:
+        f.write(s)
+        for i,nom in enumerate(problema):
+            for var in problema[nom]:
+                template = environment.from_string(MoodleMulti(codchar(nom), var[0], codchar(var[1]), var[2]))
+                content = template.render(Valores())
+                f.write(content)
+        f.write("\\end{quiz}\n\n\\end{document}\n")
+
+#+end_src
+
+#+NAME: Quiz para Moodle versión Profe
+#+begin_src python :noweb no-export
+def QuizMoodleProfe (nombre, directorio, problema, opc=["",""]):
+    <<Método auxiliar que transforma un objeto en diccionario si no era ya un diccionario>>
+    problema = creaDiccionario(problema, nombre)
+    auxLaTeX = opc[0]
+    <<Preámbulo fichero \LaTeX{} con paquete moodle>>
+    s = s + "\\begin{quiz}{" + nombre + "}\n\n"
+    with open(directorio + nombre + ".tex","w") as f:
+        f.write(s)
+        for i,nom in enumerate(problema):
+            for var in problema[nom]:
+                f.write( MoodleMultiProfe(codchar(nom), var[0], codchar(var[1]), var[2]) )
+        f.write("\\end{quiz}\n\n\\end{document}\n")
+
+#+end_src
+
+#+NAME: Quiz para Moodle versión Profe con valores
+#+begin_src python :noweb no-export
+def QuizMoodleProfeConVariables (nombre, directorio, problema, environment, Valores, opc=["",""]):
+    <<Método auxiliar que transforma un objeto en diccionario si no era ya un diccionario>>
+    problema = creaDiccionario(problema, nombre)
+    auxLaTeX = opc[0]
+    <<Preámbulo fichero \LaTeX{} con paquete moodle>>
+    s = s + "\\begin{quiz}{" + nombre + "}\n\n"
+    with open(directorio + nombre + ".tex","w") as f:
+        f.write(s)
+        for i,nom in enumerate(problema):
+            for var in problema[nom]:
+                template = environment.from_string(MoodleMultiProfe(codchar(nom), var[0], codchar(var[1]), var[2]))
+                content = template.render(Valores())
+                f.write(content)
+        f.write("\\end{quiz}\n\n\\end{document}\n")
+
+#+end_src
+
+Si necesitamos que las variantes añadan la [[cuestion alternativa por defecto para Moodle][cuestion alternativa por defecto para Moodle]]
+para así asegurarnos de que siempre hay una respuesta correcta,
+entonces empleamos el método =QuizMoodleLastCh=, que hace lo
+mismo que el anterior pero llamando a =MoodleMultiLastCh=.
+
+#+NAME: Quiz para Moodle con LastChoice
+#+begin_src python :noweb no-export
+def QuizMoodleLastCh (nombre, directorio, problema, opc=["","Las demás opciones son falsas"]):
+    <<Método auxiliar que transforma un objeto en diccionario si no era ya un diccionario>>
+    problema      = creaDiccionario(problema, nombre)
+    auxLaTeX      = opc[0]
+    OpcPorDefecto = opc[1]
+    <<Preámbulo fichero \LaTeX{} con paquete moodle>>
+    s = s + "\\begin{quiz}{" + nombre + "}\n\n"
+    with open(directorio + nombre + ".tex","w") as f:
+        f.write(s)
+        for i,nom in enumerate(creaDiccionario(problema, nombre)):
+            for var in problema[nom]:
+                f.write(MoodleMultiLastCh(codchar(nom),var[0],codchar(var[1]),var[2],opc[1]))
+        f.write("\\end{quiz}\n\n\\end{document}\n")
+
+#+end_src
+
+#+NAME: Quiz para Moodle con LastChoice con valores
+#+begin_src python :noweb no-export
+def QuizMoodleLastChConVariables (nombre, directorio, problema, environment, Valores, opc=["","Las demás opciones son falsas"]):
+    <<Método auxiliar que transforma un objeto en diccionario si no era ya un diccionario>>
+    problema      = creaDiccionario(problema, nombre)
+    auxLaTeX      = opc[0]
+    OpcPorDefecto = opc[1]
+    <<Preámbulo fichero \LaTeX{} con paquete moodle>>
+    s = s + "\\begin{quiz}{" + nombre + "}\n\n"
+    with open(directorio + nombre + ".tex","w") as f:
+        f.write(s)
+        for i,nom in enumerate(creaDiccionario(problema, nombre)):
+            for var in problema[nom]:
+                template = environment.from_string(MoodleMultiLastCh(codchar(nom), var[0], codchar(var[1]), var[2]))
+                content = template.render(Valores())
+                f.write(content)
+        f.write("\\end{quiz}\n\n\\end{document}\n")
+
+#+end_src
+
+=QuizVFMoodle= genera un archivo LaTeX con las variantes de un =ProblemaVF=.
+Los argumentos son el =nombre= del =ProblemaVF=, el =directorio= donde crear el archivo, el iterador =GenVar= que genera las variantes, y el =num=-ero de variantes que se desea.
+#+NAME: Quiz VF para Moodle
+#+begin_src python :noweb no-export
+def QuizVFMoodle (nombre, directorio, GenVar, num, opc=["",""]):
+    auxLaTeX      = opc[0]
+    <<Preámbulo fichero \LaTeX{} con paquete moodle>>
+    s = s + "\\begin{quiz}{" + nombre + "}\n\n"
+    with open(directorio + nombre + ".tex","w") as f:
+        f.write(s)
+        for i in range(num):
+            var = next(GenVar)
+            f.write( MoodleMulti (codchar(nombre), var[0], codchar(var[1]), var[2]) )
+        f.write("\\end{quiz}\n\n\\end{document}\n")
+#+end_src
+
+Cuando necesitamos que las variantes añadan la [[cuestion alternativa por defecto para Moodle][cuestion alternativa por defecto para Moodle]], empleamos el método =QuizVFMoodleLastCh=, que hace lo mismo que el anterior pero llamando a =MoodleMultiLastCh=.
+#+NAME: Quiz VF para Moodle con LastChoice
+#+begin_src python :noweb no-export
+def QuizVFMoodleLastCh (nombre, directorio, GenVar, num, opc=["","Las demás opciones son falsas"]):
+    auxLaTeX      = opc[0]
+    <<Preámbulo fichero \LaTeX{} con paquete moodle>>
+    s = s + "\\begin{quiz}{" + nombre + "}\n\n"
+    with open(directorio + nombre + ".tex","w") as f:
+        f.write(s)
+        for i in range(num):
+            var = next(GenVar)
+            f.write(MoodleMultiLastCh(codchar(nombre),var[0],codchar(var[1]),var[2],opc[1]))
+        f.write("\\end{quiz}\n\n\\end{document}\n")
+#+end_src
+
+*** =MoodleMulti= y =MoodleMultiLastCh=
+
+=MoodleMulti= genera una cadena de caracteres con los comandos \LaTeX{} correspondientes a una pregunta de opción múltiple.
+Los parámetros del método =MoodleMulti= son: =nombre= (el nombre del problema) y =variante= (el número de la variante)[fn::Que separados por un guión son empleados como nombre de cada variante del problema de opción múltiple dentro del código LaTeX.], el =enunciado= de la variante y la lista de =cuestiones= de la variante.
+#+NAME: Formato Moodle de preguntas de elección múltiple
+#+begin_src python :noweb no-export
+def MoodleMulti (nombre, variante, enunciado, cuestiones):
+    <<Escritura del entorno multi>>
+#+end_src
+
+El método =MoodleMulti= escribe el código LaTeX de un entorno =multi= del paquete [[https://ctan.org/pkg/moodle][moodle]] con los siguientes parámetros opcionales para dicho entorno: =multiple= para que sea una pregunta de opción múltiple y =points= el número de opciones de respuesta de la pregunta (la longitud de =cuestiones=).
+
+#+NAME: Escritura del entorno multi
+#+begin_src python :noweb no-export
+<<Escritura de cada item de cuestión en Moodle>>
+
+ex = ''
+s = " \\begin{multi}[multiple, points=" + str(len(cuestiones)-1) +"]"
+s = s + "{" + codchar(nombre) + "-" + str(variante) + "}\n"
+s = s + "    " + enunciado + "\n"
+
+<<Escritura de las cuestiones para Moodle>>
+
+s = s + " \\end{multi}\n\n"
+return s
+#+end_src
+
+#+NAME: Formato Moodle de preguntas de elección múltiple para el Profe
+#+begin_src python :noweb no-export
+def MoodleMultiProfe (nombre, variante, enunciado, cuestiones):
+    <<Escritura aclaración en Moodle>>
+    <<Escritura del entorno multi para el Profe>>
+#+end_src
+
+#+NAME: Escritura aclaración en Moodle
+#+begin_src python :noweb yes
+def feedback(texto):
+    return r",feedback={"+codchar(texto)+"}"
+#+end_src
+
+#+NAME: Escritura del entorno multi para el Profe
+#+begin_src python :noweb no-export
+<<Conteo de respuestas correctas e incorrectas>>
+<<Escritura de cada item de cuestión en Moodle para Profe>>
+
+ex = ''
+s = " \\begin{multi}[multiple, fractiontol=5.1"  +"]"
+s = s + "{" + codchar(nombre) + "-" + str(variante) + "}\n"
+s = s + "    " + enunciado + "\n"
+
+<<Escritura de las cuestiones para Moodle para el Profe>>
+
+s = s + " \\end{multi}\n\n"
+return s
+#+end_src
+
+#+NAME: Conteo de respuestas correctas e incorrectas
+#+begin_src python :noweb yes
+b = 0; m = 0;
+for c in cuestiones:
+    print(c)
+    if c[2]:
+        if c[1]:
+            b+=1
+        else:
+            m+=1
+#+end_src
+
+#+NAME: Escritura de cada item de cuestión en Moodle
+#+begin_src python :noweb yes
+def itemBuena(aclaracion):
+    return ("\\item[feedback={" + codchar(aclaracion) + "}]* ") if aclaracion else r"\item* "
+
+def itemMala(aclaracion):
+    return ("\\item[feedback={" + codchar(aclaracion) + "}]  ") if aclaracion else r"\item  "
+#+end_src
+
+#+NAME: Escritura de cada item de cuestión en Moodle para Profe
+#+begin_src python :noweb yes
+def itemBuena(numBuenas,aclaracion):
+    return ("\\item[fraction=" + str( round(100/numBuenas) ) + feedback(aclaracion) + "]") if numBuenas else "\\item*"
+
+def itemMala(numMalas,aclaracion):
+    return ("\\item[fraction=" + str(-round(100/numMalas) ) + feedback(aclaracion) + "]") if numMalas else "\\item"
+#+end_src
+
+Cuando requerimos añadir la [[cuestion alternativa por defecto para Moodle][cuestion alternativa por defecto para Moodle]] llamamos a =MoodleMultiLastCh= que añade la opción /``Las demás opciones son falsas''/ a la lista =cuestiones=.
+#+NAME: Formato Moodle de preguntas de elección múltiple con LastChoice
+#+begin_src python :noweb no-export
+def MoodleMultiLastCh (nombre, variante, enunciado, cuestiones, \
+                       lastchoice="Las demás opciones son falsas"):
+    <<cuestion alternativa por defecto para Moodle>>
+    <<Escritura del entorno multi>>
+
+#+end_src
+
+**** Codificación de caracteres no =ASCII=
+
+#+NAME: Método codchar para codificar caracteres no ASCII en \LaTeX{}
+#+begin_src python :noweb yes
+def codchar(s):
+     s = s.replace("á", "\\'{a}")
+     s = s.replace("é", "\\'{e}")
+     s = s.replace("í", "\\'{i}")
+     s = s.replace("ó", "\\'{o}")
+     s = s.replace("ú", "\\'{u}")
+     s = s.replace("ñ", "\\~{n}")
+     return s
+#+end_src
+
+*** Ejemplo de uso de =QuizMoodleLastCh= y =QuizVFMoodleLastCh=
+
+#+NAME: EjemploMoodle.py
+#+begin_src python :tangle ../../examples/EjemploMoodle.py :noweb yes
+from calcprop_export import *
+p = ProblemaTipo( \
+      [   "Considere ",
+          [
+              Supuesto("$\\mathcal{A}$ ", v("A")),
+              Supuesto("$\\mathcal{B}$ ", v("B")),
+          ],
+          [
+              Supuesto("y que $\\mathcal{A}\\Rightarrow\\mathcal{C}$. ",    \
+                       v("A") >> v("C")),
+              Supuesto("y que $\\mathcal{B}\\Leftrightarrow\\mathcal{D}$. ",\
+                       v("B") ** v("D")),
+          ],
+          "Indique qué opción es correcta: ",
+          [
+              Cuestion("Entonces $\\mathcal{C}$ es verdadero", v("C")),
+              Cuestion("Entonces $\\mathcal{D}$ es verdadero", v("D")),
+              Cuestion("Entonces $\\mathcal{E}$ es verdadero", v("E"), v("D")),
+          ],
+      ])
+nombre     = "EjemploMoodle"
+directorio = "../ejemplos/"
+QuizMoodleLastCh (nombre, directorio, p)
+
+#+end_src
+
+
+#+NAME: EjemploVFMoodle.py
+#+begin_src python :tangle ../../examples/EjemploVFMoodle.py :noweb yes
+from calcprop_export import *
+
+enunciado = "Indique qué afirmaciones son verdaderas:"
+banco = [
+  ("Todo alumno que va a clase aprueba",   False),
+  ("Todo alumno que suspende va a clase",  False),
+  ("Todo alumno que sabe aprueba",         True ),
+  ("Si aprueban todos eres buen profesor", False),
+  ("Si suspenden todos eres mal profesor", False),
+  ("Si suspenden todos es frustrante",     True ),]
+
+b = [(codchar(p[0]),p[1]) for p in banco]
+
+GenVar = iter( ProblemaVF (codchar(enunciado), b, 3) )
+
+nombre     = "EjemploVFMoodle"
+directorio = "../ejemplos/"
+
+QuizVFMoodleLastCh (nombre, directorio, GenVar, 4)
+
+#+end_src
+
+** COMMENT Preguntas en Notebooks de Jupyter para usar con [[https://nbgrader.readthedocs.io/en/stable/index.html][nbgrader]]
+
+#+NAME: Preámbulo fichero ~ipynb~
+#+begin_src python :noweb yes
+s = '{\n'
+s = s + ' "metadata": {\n'
+s = s + '  "kernelspec": {\n'
+s = s + '   "display_name": "Python",\n'
+s = s + '   "language": "python",\n'
+s = s + '   "name": "python"\n'
+s = s + '  }\n'
+s = s + ' },\n'
+s = s + ' "nbformat": 4,\n'
+s = s + ' "nbformat_minor": 0,\n'
+s = s + ' "cells": [\n'
+#+end_src
+
+#+NAME: Final fichero ~ipynb~
+#+begin_src python :noweb yes
+z = '\n ]\n'
+z = z + '}\n'
+#+end_src
+
+#+NAME: Primera cell
+#+begin_src python :noweb yes
+s = s + '  {\n'
+s = s + '   "cell_type": "markdown",\n'
+s = s + '   "metadata": {\n'
+s = s + '    "nbgrader": {\n'
+s = s + '     "grade": false,\n'
+s = s + '     "grade_id": "jupyter",\n'
+s = s + '     "locked": true,\n'
+s = s + '     "schema_version": 3,\n'
+s = s + '     "solution": false\n'
+s = s + '    }\n'
+s = s + '   },\n'
+s = s + '   "source": [\n'
+s = s + '    "Para este conjunto de ejercicios usaremos un notebook de Jupyter:\\n",\n'
+s = s + '    "\\n",\n'
+s = s + '    "![](jupyter.png)"\n'
+s = s + '   ]\n'
+s = s + '  }'
+#+end_src
+
+#+NAME: Quiz para Jupyter
+#+begin_src python :noweb  no-export
+def QuizJupyter (nombre, directorio, problema, auxLaTeX=""):
+    <<Preámbulo fichero ~ipynb~>>
+    <<Primera cell>>
+    <<Cell con el enunciado>>
+    with open(directorio + nombre + ".ipynb","w") as f:
+        f.write(s)
+        f.write(e)
+        f.write("\n ]\n}\n")
+#+end_src
+
+#+NAME: Formato Jupyter de preguntas de elección múltiple
+#+begin_src python :noweb  no-export
+def JupyterMulti (nombre, variante, enunciado, cuestiones):
+    <<Cell con el enunciado>>
+#+end_src
+
+#+NAME: Cell con el enunciado
+#+begin_src python :noweb yes
+e = ',\n'
+e = e + '  {\n'
+e = e + '   "cell_type": "markdown",\n'
+e = e + '   "metadata": {},\n'
+e = e + '   "source": [\n'
+e = e + '    "---\\n",\n'
+e = e + '    "## Pregunta (2 points)\\n",\n'
+e = e + '    "\\n",\n'
+e = e + '    "Write a function that returns a list of numbers, such that $x_i=i^2$, for $1\\\\leq i \\\\leq n$. Make sure it handles the case where $n<1$ by raising a `ValueError`."\n'
+e = e + '   ]\n'
+e = e + '  }'
+#+end_src
