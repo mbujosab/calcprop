@@ -1,10 +1,16 @@
 # Entorno virtual
 .venv/
 
-# Emacs temporales
+# Emacs
 \#*\#
 .\#*
 *.elc
+*.~undo-tree~
+.projectile
+
+# Notas y archivos locales
+notas.org
+workflow.org
 
 # Python
 __pycache__/
@@ -21,6 +27,10 @@ build/
 *.toc
 *.fls
 *.fdb_latexmk
+
+# Exportaciones generadas
+*.tex
+*.html
 
 # Salida generada por los ejemplos
 ejemplos/

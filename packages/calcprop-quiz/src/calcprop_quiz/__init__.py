@@ -1,10 +1,10 @@
 from calcprop import *
 
-def CuestionesJuntas(l):
+def CuestionesJuntas(lista):
     def CreaLista(t):
         return t if isinstance(t, list) else [t]
     p = []
-    for e in l:
+    for e in lista:
         if isinstance(e,str):
             p.append(e)
         elif not isinstance(CreaLista(e)[0],Cuestion):
@@ -37,16 +37,24 @@ class Marcador:
         return n
 
 class Supuesto:
-    def __init__(self,enunciado, semantica, precond=True):
+    def __init__(self, enunciado, semantica, precond=True):
         self.e = enunciado
         self.s = semantica
         self.p = precond
+
+    def __repr__(self):
+        """Método de representación"""
+        return 'Cuestión( Enunciado: ' + self.e + '; Semántica: ' + self.s + '; Precondición: ' + self.p + ')'
 class Cuestion:
     def __init__(self, enunciado, semantica, precond=True, exp=""):
         self.e = enunciado
         self.s = semantica
         self.p = precond
         self.x = exp
+
+    def __repr__(self):
+        """Método de representación"""
+        return 'Cuestión( Enunciado: ' + self.e + '; Semántica: ' + self.s + '; Precondición: ' + self.p + ')'
 class ProblemaTipo:
     def __init__(self, supuestos_y_cuestiones):
         self.e = supuestos_y_cuestiones
@@ -58,7 +66,6 @@ class ProblemaTipo:
         self.c    = 0
         return self
     def __next__(self):
-    
         self.c += 1
         while True:
             try:
@@ -66,9 +73,9 @@ class ProblemaTipo:
             except StopIteration:
                 raise StopIteration
     
-            enunciado     = ""
-            hipotesis     = []
-            cuestiones    = []
+            enunciado    = ""
+            hipotesis    = []
+            cuestiones   = []
     
             for n in range(self.long+1):
                 if n == self.long:
@@ -97,7 +104,6 @@ class ProblemaTipo:
                         print('\n Cuestion: '   + str(componente.e) \
                             + ' rechazada por ' + str(componente.p) + '\n')
                         break
-
 class ProblemaTipoProfe:
     def __init__(self, supuestos_y_cuestiones):
         self.e = CuestionesJuntas(supuestos_y_cuestiones)
@@ -109,7 +115,6 @@ class ProblemaTipoProfe:
         self.c    = 0
         return self
     def __next__(self):
-    
         self.c += 1
         while True:
             try:
@@ -145,6 +150,7 @@ class ProblemaTipoProfe:
                     else:
                         cuestiones = cuestiones + \
                             [(componente.e,'rechazada por ' + str(componente.p),0)]
+                
 from random import sample
 class ProblemaVF():
     def __init__(self, enunciado, cuestiones, NumPreguntas):
@@ -158,5 +164,5 @@ class ProblemaVF():
 
     def __next__(self):
         cuestiones = sample(self.c, self.NumPreguntas)
-        self.contador  += 1
+        self.contador += 1
         return (str(self.contador), self.e, cuestiones)
