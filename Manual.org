@@ -1,0 +1,251 @@
+#+TITLE: Manual de uso de =calcprop=
+#+AUTHOR: Marcos Bujosa
+#+LANGUAGE: es
+#+OPTIONS: toc:2 num:t
+#+STARTUP: overview
+
+# ─── Configuración de org-babel ───────────────────────────────────
+#+PROPERTY: header-args:python :python /home/marcos/SynologyDrive/ReposGH/Docencia/calcprop/.venv/bin/python3 :session *calcprop* :results output
+
+# ─── LaTeX export ────────────────────────────────────────────────
+#+LATEX_CLASS: report
+#+LATEX_CLASS_OPTIONS: [10pt,a4paper]
+
+#+LATEX_HEADER: \usepackage{fontspec}
+#+LATEX_HEADER: \setmainfont{Latin Modern Roman}
+#+LATEX_HEADER: \usepackage[spanish]{babel}
+#+LATEX_HEADER: \usepackage{tabularx}
+#+LATEX_HEADER: \usepackage{etoolbox}
+#+LATEX_HEADER: \AtBeginEnvironment{verbatim}{\small}
+
+* Introducción
+
+=calcprop= es una librería Python que implementa un motor de cálculo proposicional.
+Permite construir fórmulas lógicas combinando variables proposicionales con los
+conectivos habituales, y comprobar si una fórmula es consecuencia lógica de un
+conjunto de hipótesis.
+
+Está diseñada para usarse como motor de razonamiento en aplicaciones que necesitan
+determinar automáticamente la veracidad de afirmaciones a partir de supuestos dados.
+El paquete [[https://github.com/mbujosab/calcprop-qbank][=calcprop-qbank=]] lo utiliza para generar bancos de preguntas de opción múltiple.
+
+** Instalación rápida (para quien ya conoce Python)
+
+#+begin_src bash
+pip install calcprop
+#+end_src
+
+Si no estás familiarizado con Python o los entornos virtuales, lee la sección siguiente.
+
+* Instalación paso a paso
+
+** Requisitos previos
+
+=calcprop= requiere Python 3.9 o superior. Comprueba si ya lo tienes instalado:
+
+| Sistema   | Comando en terminal |
+|-----------+---------------------|
+| Linux     | =python3 --version= |
+| macOS     | =python3 --version= |
+| Windows   | =py --version=      |
+
+Si el comando devuelve algo como =Python 3.11.2= estás listo. Si no, descarga Python
+desde [[https://www.python.org/downloads/][python.org]] e instálalo (en Windows marca la opción /Add Python to PATH/).
+
+** Qué es un entorno virtual y por qué usarlo
+
+Un entorno virtual es una carpeta que contiene una copia aislada de Python con sus
+propios paquetes instalados, independiente del resto del sistema. Esto evita conflictos
+entre proyectos que requieren versiones distintas de las mismas librerías.
+
+** Crear y activar un entorno virtual
+
+Abre una terminal y sitúate en el directorio donde quieres trabajar:
+
+#+begin_example
+mkdir mi_proyecto
+cd mi_proyecto
+#+end_example
+
+Crea el entorno virtual:
+
+| Sistema         | Comando                 |
+|-----------------+-------------------------|
+| Linux / macOS   | =python3 -m venv .venv= |
+| Windows (cmd)   | =py -m venv .venv=      |
+| Windows (PS)    | =py -m venv .venv=      |
+
+Actívalo:
+
+| Sistema              | Comando                              |
+|----------------------+--------------------------------------|
+| Linux / macOS        | =source .venv/bin/activate=          |
+| Windows (cmd)        | =.venv\Scripts\activate.bat=         |
+| Windows (PowerShell) | =.venv\Scripts\Activate.ps1=        |
+
+** Instalar =calcprop=
+
+Con el entorno activo:
+
+#+begin_src bash
+pip install calcprop
+#+end_src
+
+Verifica la instalación:
+
+#+begin_src bash
+python -c "from calcprop import *; print('calcprop OK')"
+#+end_src
+
+** Nota para usuarios de Windows
+
+En Windows, dentro del entorno virtual, usa =python= (no =python3=). Si
+=py -m venv .venv= falla con un error de permisos en PowerShell, ejecuta antes:
+
+#+begin_example
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+#+end_example
+
+* Variables proposicionales
+
+Las variables proposicionales son los átomos del cálculo proposicional. Se crean
+con la función =v()=, que acepta cualquier cadena de texto como nombre:
+
+#+begin_src python :results silent
+from calcprop import *
+
+A = v("A")
+B = v("B")
+#+end_src
+
+Cada llamada a =v()= con el mismo argumento produce la misma variable:
+
+#+begin_src python :exports both
+print(v("A") == v("A"))   # True
+print(v("A") == v("B"))   # False
+#+end_src
+
+* Conectivos lógicos
+
+Las fórmulas se construyen combinando variables con los operadores de Python:
+
+#+ATTR_LATEX: :environment tabularx :width \textwidth :align llX
+| Operador Python                             | Conectiva             | Significado                          |
+|---------------------------------------------+-----------------------+--------------------------------------|
+| =-v('A')=                                   | Negación (¬A)         | Es falso que A                       |
+| =v('A') & v('B')=                           | Conjunción (A ∧ B)    | A y B                                |
+| @@latex:\texttt{v('A') \textbar{} v('B')}@@ | Disyunción (A ∨ B)    | A o B (o ambos)                      |
+| =v('A') >> v('B')=                          | Implicación (A → B)   | Si A entonces B                      |
+| =v('A') ** v('B')=                          | Bicondicional (A ↔ B) | A si y solo si B                     |
+
+Las fórmulas se pueden anidar libremente:
+
+#+begin_src python :exports both
+f1 = v("A") >> v("B")          # A implica B
+f2 = -v("A") | v("B")          # no-A o B  (equivalente a f1)
+f3 = (v("A") & v("B")) ** v("C")  # (A y B) si y solo si C
+print(f1)
+print(f2)
+print(f3)
+#+end_src
+
+* La función =test=
+
+=test(formula, hipotesis)= comprueba si una fórmula es consecuencia lógica de
+una lista de hipótesis. Devuelve =True= o =False=.
+
+#+begin_src python
+test(formula, hipotesis=[])
+#+end_src
+
+| Parámetro   | Descripción                                                      |
+|-------------+------------------------------------------------------------------|
+| =formula=   | La fórmula cuya derivabilidad se comprueba. También acepta =True= (tautología) o =False= (contradicción). |
+| =hipotesis= | Lista de fórmulas que se asumen verdaderas. Por defecto vacía.   |
+
+** Ejemplos básicos
+
+#+begin_src python :exports both
+# Modus ponens: de A y (A → B) se deriva B
+print(test(v("B"), [v("A"), v("A") >> v("B")]))   # True
+
+# Sin hipótesis, B no es derivable
+print(test(v("B"), []))                            # False
+
+# Una tautología siempre es verdadera
+print(test(v("A") | -v("A"), []))                  # True
+
+# Una contradicción nunca es derivable
+print(test(False, []))                             # False
+#+end_src
+
+** =test= con fórmulas compuestas como hipótesis
+
+Las hipótesis pueden ser cualquier fórmula, no solo variables atómicas:
+
+#+begin_src python :exports both
+# De (A → B) y (B → C) se deriva (A → C)
+print(test(v("A") >> v("C"),
+           [v("A") >> v("B"), v("B") >> v("C")]))  # True
+
+# De (A ↔ B) se deriva tanto (A → B) como (B → A)
+print(test(v("A") >> v("B"), [v("A") ** v("B")]))  # True
+print(test(v("B") >> v("A"), [v("A") ** v("B")]))  # True
+#+end_src
+
+** =True= y =False= como fórmulas
+
+Los literales Python =True= y =False= se pueden usar directamente como fórmulas:
+
+#+begin_src python :exports both
+print(test(True,  []))        # True  — tautología
+print(test(False, []))        # False — contradicción
+print(test(v("A"), [True]))   # False — True como hipótesis no aporta información
+print(test(v("A"), [False]))  # True  — de una hipótesis falsa se deriva cualquier cosa
+#+end_src
+
+* Funciones auxiliares
+
+** =unoDe= — exactamente uno verdadero
+
+=unoDe(A, B, C, ...)= construye una fórmula que es verdadera cuando exactamente
+uno de los argumentos es verdadero:
+
+#+begin_src python :exports both
+# Exactamente uno de A, B, C es verdadero
+f = unoDe(v("A"), v("B"), v("C"))
+
+# Si A es verdadero, B y C deben ser falsos
+print(test(f, [v("A"), -v("B"), -v("C")]))   # True
+print(test(f, [v("A"),  v("B")]))             # False  (dos verdaderos)
+#+end_src
+
+** =alguno= — al menos uno verdadero
+
+=alguno(A, B, C, ...)= es equivalente a la disyunción =A | B | C | ...=:
+
+#+begin_src python :exports both
+f = alguno(v("A"), v("B"), v("C"))
+print(test(f, [v("B")]))    # True
+print(test(f, []))           # False
+#+end_src
+
+* Referencia rápida
+
+#+begin_example
+from calcprop import *
+
+v("X")              → variable proposicional X
+-v("X")             → negación de X  (¬X)
+v("X") & v("Y")     → conjunción     (X ∧ Y)
+v("X") | v("Y")     → disyunción     (X ∨ Y)
+v("X") >> v("Y")    → implicación    (X → Y)
+v("X") ** v("Y")    → bicondicional  (X ↔ Y)
+True / False        → tautología / contradicción
+
+test(formula, [h1, h2, ...])  → bool
+    True si formula es consecuencia lógica de las hipótesis h1, h2, ...
+
+unoDe(A, B, C, ...)  → exactamente uno de los argumentos es verdadero
+alguno(A, B, C, ...) → al menos uno de los argumentos es verdadero
+#+end_example
