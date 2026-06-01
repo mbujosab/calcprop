@@ -1,4 +1,5 @@
 #+TITLE: calcprop — cálculo proposicional
+#+AUTHOR: Andrés Bujosa, Marcos Bujosa
 #+LANGUAGE: es
 #+OPTIONS: toc:t num:t H:4
 #+STARTUP: overview
@@ -18,12 +19,48 @@
 
 #+MACRO: codebox @@latex:\fbox{\texttt{$1}}@@
 
+# ─── Copyright ──────────────────────────────────────────────────────────────
+# Copyright (C) 2020-2026  Andrés Bujosa, Marcos Bujosa
+#
+# This file is part of calcprop.
+#
+# calcprop is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# calcprop is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 * Aparato lógico
 
 ** Estructura del paquete =calcprop=
 
 # coding=utf8
+
+#+begin_src python :tangle src/calcprop/__init__.py :exports none
+# Copyright (C) 2020-2026  Andrés Bujosa, Marcos Bujosa
+#
+# This file is part of calcprop.
+#
+# calcprop is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# calcprop is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#+end_src
 
 #+NAME: calcprop/__init__.py
 #+begin_src python :tangle src/calcprop/__init__.py :noweb no-export
