@@ -37,6 +37,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+
+# Para que no ejecute todo el código al exportar a pdf
+#+PROPERTY: header-args :eval never-export
+#+CALL: NombreEnChunksDeCodigo()
+
+
+#+NAME: NombreEnChunksDeCodigo
+#+BEGIN_SRC emacs-lisp :results silent :eval yes :exports none
+(setq org-babel-exp-code-template
+         (concat "\n#+ATTR_LATEX: :options label=%name\n"
+              org-babel-exp-code-template)
+               )
+(setq fill-column 100)
+#+END_SRC
+
+
 * Aparato lógico
 
 ** Estructura del paquete =calcprop=
