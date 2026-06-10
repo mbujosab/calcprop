@@ -13,4 +13,4 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
-See the [LICENSE](../../LICENSE) file for details.
+See the [LICENSE](https://github.com/mbujosab/calcprop/blob/main/LICENSE) file for details.
