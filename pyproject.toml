@@ -35,3 +35,6 @@ Source   = "https://github.com/mbujosab/calcprop"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/calcprop"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [".claude", "*.pdf", ".gitignore"]

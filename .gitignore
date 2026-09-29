@@ -39,3 +39,6 @@ ejemplos/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Configuración local de Claude Code
+.claude/
