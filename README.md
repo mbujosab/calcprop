@@ -25,11 +25,11 @@ print(explica(B, [A, A >> B]))       # árbol de refutación paso a paso
 print(tabla_verdad(B, [A, A >> B]))  # tabla de verdad con las filas que cumplen las premisas
 ```
 
-- Introducción al cálculo proposicional, interactiva: [`Introduccion.ipynb`](Introduccion.ipynb);
+- Introducción al cálculo proposicional, interactiva: [`Introduccion.ipynb`](https://github.com/mbujosab/calcprop/blob/main/Introduccion.ipynb);
   se puede ejecutar sin instalar nada pulsando el botón *launch binder* de arriba.
 
-- Manual de uso: [`Manual.org`](Manual.org) / [`Manual.pdf`](Manual.pdf).
-- Código fuente documentado (programación literaria): [`CalcProp.org`](CalcProp.org);
+- Manual de uso: [`Manual.org`](https://github.com/mbujosab/calcprop/blob/main/Manual.org) / [`Manual.pdf`](https://github.com/mbujosab/calcprop/blob/main/Manual.pdf).
+- Código fuente documentado (programación literaria): [`CalcProp.org`](https://github.com/mbujosab/calcprop/blob/main/CalcProp.org);
   `src/calcprop/__init__.py` se genera de él mediante `org-babel-tangle`.
 - Pruebas: `python -m pytest`.
 

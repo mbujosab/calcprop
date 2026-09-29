@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "calcprop"
 version = "0.2.0"
-description = "Propositional calculus library"
+description = "Cálculo proposicional en Python: fórmulas, consecuencia lógica, tablas de verdad y razonamiento paso a paso (propositional calculus)"
 authors = [
     {name = "Marcos Bujosa", email = "mbujosab@ucm.es"},
 ]
@@ -30,8 +30,11 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/mbujosab/calcprop"
-Source   = "https://github.com/mbujosab/calcprop"
+Homepage      = "https://github.com/mbujosab/calcprop"
+Source        = "https://github.com/mbujosab/calcprop"
+Documentation = "https://github.com/mbujosab/calcprop/blob/main/Manual.pdf"
+Binder        = "https://mybinder.org/v2/gh/mbujosab/calcprop/main?labpath=Introduccion.ipynb"
+Issues        = "https://github.com/mbujosab/calcprop/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/calcprop"]
