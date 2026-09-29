@@ -1,0 +1,5 @@
+#!/bin/bash
+# Registra el kernel "calcprop" que declara Introduccion.ipynb, para que el
+# cuaderno se abra directamente con él en Binder.
+set -e
+python -m ipykernel install --user --name calcprop --display-name "Python (calcprop)"

@@ -9,7 +9,9 @@
 # GNU General Public License v3 or later — see <https://www.gnu.org/licenses/>
 
 # ─── Configuración de org-babel ───────────────────────────────────
-#+PROPERTY: header-args:python :python /home/marcos/SynologyDrive/ReposGH/Docencia/calcprop/.venv/bin/python3 :session *calcprop* :results output
+# Los bloques se ejecutan con el Python del entorno virtual del repositorio
+# (ruta relativa al directorio de este fichero).
+#+PROPERTY: header-args:python :python .venv/bin/python3 :session *calcprop* :results output :eval never-export
 
 # ─── LaTeX export ────────────────────────────────────────────────
 #+LATEX_CLASS: report
@@ -17,7 +19,8 @@
 
 #+LATEX_HEADER: \usepackage{fontspec}
 #+LATEX_HEADER: \setmainfont{Latin Modern Roman}
-#+LATEX_HEADER: \usepackage[spanish]{babel}
+#+LATEX_HEADER: \setmonofont{DejaVu Sans Mono}[Scale=MatchLowercase] % tiene ✓ ✗ ⇒, que Latin Modern no
+#+LATEX_HEADER: \usepackage[spanish,es-noquoting]{babel}
 #+LATEX_HEADER: \usepackage{tabularx}
 #+LATEX_HEADER: \usepackage{etoolbox}
 #+LATEX_HEADER: \AtBeginEnvironment{verbatim}{\small}
@@ -31,7 +34,10 @@ conjunto de hipótesis.
 
 Está diseñada para usarse como motor de razonamiento en aplicaciones que necesitan
 determinar automáticamente la veracidad de afirmaciones a partir de supuestos dados.
-El paquete [[https://github.com/mbujosab/calcprop-qbank][=calcprop-qbank=]] lo utiliza para generar bancos de preguntas de opción múltiple.
+El paquete [[https://github.com/mbujosab/calcprop-qbank][=qbank=]] (publicado en PyPI como =calcprop-qbank=) lo utiliza para generar
+bancos de preguntas de opción múltiple: cada afirmación de una pregunta lleva asociada
+una fórmula, y =calcprop= decide si es verdadera, falsa o indecidible a partir de los
+supuestos del enunciado.
 
 ** Instalación rápida (para quien ya conoce Python)
 
@@ -45,7 +51,8 @@ Si no estás familiarizado con Python o los entornos virtuales, lee la sección 
 
 ** Requisitos previos
 
-=calcprop= requiere Python 3.9 o superior. Comprueba si ya lo tienes instalado:
+=calcprop= requiere Python 3.9 o superior y no depende de ningún otro paquete.
+Comprueba si ya tienes Python instalado:
 
 | Sistema   | Comando en terminal |
 |-----------+---------------------|
@@ -113,7 +120,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 * Variables proposicionales
 
 Las variables proposicionales son los átomos del cálculo proposicional. Se crean
-con la función =v()=, que acepta cualquier cadena de texto como nombre:
+con la función =v()=, que acepta cualquier cadena de texto (o número) como nombre:
 
 #+begin_src python :results silent
 from calcprop import *
@@ -122,50 +129,117 @@ A = v("A")
 B = v("B")
 #+end_src
 
-Cada llamada a =v()= con el mismo argumento produce la misma variable:
+Cada llamada a =v()= con el mismo argumento produce una variable igual a las anteriores,
+así que no hace falta guardarlas: =v("A")= escrito en dos sitios distintos es la misma variable.
 
 #+begin_src python :exports both
 print(v("A") == v("A"))   # True
 print(v("A") == v("B"))   # False
 #+end_src
 
+#+RESULTS:
+: True
+: False
+
 * Conectivos lógicos
 
-Las fórmulas se construyen combinando variables con los operadores de Python:
+Las fórmulas se construyen combinando variables con los operadores de Python.
+Si =A= y =B= son fórmulas:
 
-#+ATTR_LATEX: :environment tabularx :width \textwidth :align llX
-| Operador Python                             | Conectiva             | Significado                          |
-|---------------------------------------------+-----------------------+--------------------------------------|
-| =-v('A')=                                   | Negación (¬A)         | Es falso que A                       |
-| =v('A') & v('B')=                           | Conjunción (A ∧ B)    | A y B                                |
-| @@latex:\texttt{v('A') \textbar{} v('B')}@@ | Disyunción (A ∨ B)    | A o B (o ambos)                      |
-| =v('A') >> v('B')=                          | Implicación (A → B)   | Si A entonces B                      |
-| =v('A') ** v('B')=                          | Bicondicional (A ↔ B) | A si y solo si B                     |
+- =-A= :: negación (\(\neg A\)): /es falso que A/.
+- =A & B= :: conjunción (\(A \wedge B\)): /A y B/.
+- =A | B= :: disyunción (\(A \vee B\)): /A o B/ (o ambas).
+- =A >> B= :: implicación (\(A \rightarrow B\)): /si A entonces B/.
+- =A ** B= :: bicondicional (\(A \leftrightarrow B\)): /A si y solo si B/.
 
 Las fórmulas se pueden anidar libremente:
 
 #+begin_src python :exports both
-f1 = v("A") >> v("B")          # A implica B
-f2 = -v("A") | v("B")          # no-A o B  (equivalente a f1)
+f1 = v("A") >> v("B")             # A implica B
+f2 = -v("A") | v("B")             # no-A o B  (equivalente a f1)
 f3 = (v("A") & v("B")) ** v("C")  # (A y B) si y solo si C
 print(f1)
 print(f2)
 print(f3)
 #+end_src
 
+#+RESULTS:
+: v('A') >> v('B')
+: -v('A') | v('B')
+: (v('A') & v('B')) ** v('C')
+
+** Precedencia: pon paréntesis
+
+Los operadores son los de Python, y Python los evalúa con *su* orden de prioridad, que
+no es el habitual en lógica. De mayor a menor prioridad:
+
+1. =**= (bicondicional),
+2. =-= (negación),
+3. =>>= (implicación),
+4. =&= (conjunción),
+5. =|= (disyunción).
+
+Esto produce lecturas inesperadas:
+
+- =A & B >> C= se lee como =A & (B >> C)=, y no como =(A & B) >> C=.
+- =A | B >> C= se lee como =A | (B >> C)=.
+- =-A ** B= se lee como =-(A ** B)=, y no como =(-A) ** B=.
+- =A >> B >> C= se lee como =(A >> B) >> C=.
+
+La regla práctica: *siempre que mezcles conectivos distintos, pon paréntesis*. Solo
+=-A & B= y =-A | B= (negación de una variable dentro de una conjunción o disyunción) son
+seguros sin ellos.
+
+#+begin_src python :exports both
+print( (v("A") & v("B") >> v("C")) == (v("A") & (v("B") >> v("C"))) )   # True: ¡no es (A&B)>>C!
+#+end_src
+
+#+RESULTS:
+: True
+
+Si tienes dudas sobre cómo se ha leído una fórmula, imprímela: =calcprop= la muestra con
+paréntesis en cada operación anidada, de modo que la lectura sea inequívoca.
+
+#+begin_src python :exports both
+print( v("A") & v("B") >> v("C") )
+#+end_src
+
+#+RESULTS:
+: v('A') & (v('B') >> v('C'))
+
+** No uses =and=, =or= ni =not=
+
+Las palabras reservadas =and=, =or= y =not= de Python no se pueden redefinir, así que no
+sirven para construir fórmulas. Para evitar errores silenciosos, =calcprop= lanza un
+=TypeError= si se intenta:
+
+#+begin_src python :exports both
+try:
+    v("A") and v("B")
+except TypeError as e:
+    print(e)
+#+end_src
+
+#+RESULTS:
+: Una Proposicion no tiene valor de verdad por sí misma: use test(P, premisas). Para combinar proposiciones use los operadores &, | y - en lugar de and, or y not.
+
 * La función =test=
 
 =test(formula, hipotesis)= comprueba si una fórmula es consecuencia lógica de
 una lista de hipótesis. Devuelve =True= o =False=.
 
-#+begin_src python
+#+begin_src python :eval never
 test(formula, hipotesis=[])
 #+end_src
 
 | Parámetro   | Descripción                                                      |
 |-------------+------------------------------------------------------------------|
-| =formula=   | La fórmula cuya derivabilidad se comprueba. También acepta =True= (tautología) o =False= (contradicción). |
+| =formula=   | La fórmula cuya derivabilidad se comprueba. También acepta =True= o =False=, que se devuelven tal cual. |
 | =hipotesis= | Lista de fórmulas que se asumen verdaderas. Por defecto vacía.   |
+
+Que =test= devuelva =False= *no* significa que la fórmula sea falsa, sino que no se deduce
+de las hipótesis: puede ser falsa o puede ser indecidible con la información dada.
+Para distinguir ambos casos véase =noDerivable= más abajo.
 
 ** Ejemplos básicos
 
@@ -180,8 +254,14 @@ print(test(v("B"), []))                            # False
 print(test(v("A") | -v("A"), []))                  # True
 
 # Una contradicción nunca es derivable
-print(test(False, []))                             # False
+print(test(v("A") & -v("A"), []))                  # False
 #+end_src
+
+#+RESULTS:
+: True
+: False
+: True
+: False
 
 ** =test= con fórmulas compuestas como hipótesis
 
@@ -192,21 +272,48 @@ Las hipótesis pueden ser cualquier fórmula, no solo variables atómicas:
 print(test(v("A") >> v("C"),
            [v("A") >> v("B"), v("B") >> v("C")]))  # True
 
-# De (A ↔ B) se deriva tanto (A → B) como (B → A)
+# De (A <-> B) se deriva tanto (A -> B) como (B -> A)
 print(test(v("A") >> v("B"), [v("A") ** v("B")]))  # True
 print(test(v("B") >> v("A"), [v("A") ** v("B")]))  # True
 #+end_src
 
+#+RESULTS:
+: True
+: True
+: True
+
 ** =True= y =False= como fórmulas
 
-Los literales Python =True= y =False= se pueden usar directamente como fórmulas:
+Los literales Python =True= y =False= se pueden usar directamente como fórmula y como
+hipótesis. Como fórmula se devuelven tal cual (sin mirar las hipótesis); como hipótesis,
+=True= no aporta información y =False= hace derivable cualquier cosa:
 
 #+begin_src python :exports both
-print(test(True,  []))        # True  — tautología
-print(test(False, []))        # False — contradicción
+print(test(True,  []))        # True
+print(test(False, []))        # False
 print(test(v("A"), [True]))   # False — True como hipótesis no aporta información
 print(test(v("A"), [False]))  # True  — de una hipótesis falsa se deriva cualquier cosa
 #+end_src
+
+#+RESULTS:
+: True
+: False
+: False
+: True
+
+** Las hipótesis van en una lista
+
+Un despiste frecuente es pasar una sola hipótesis sin corchetes. =calcprop= lo detecta:
+
+#+begin_src python :exports both
+try:
+    test(v("B"), v("A") >> v("B"))
+except TypeError as e:
+    print(e)
+#+end_src
+
+#+RESULTS:
+: premisas debe ser una lista de proposiciones, por ejemplo test(P, [v('A') >> v('B')]).
 
 * Funciones auxiliares
 
@@ -222,7 +329,18 @@ f = unoDe(v("A"), v("B"), v("C"))
 # Si A es verdadero, B y C deben ser falsos
 print(test(f, [v("A"), -v("B"), -v("C")]))   # True
 print(test(f, [v("A"),  v("B")]))             # False  (dos verdaderos)
+
+# Y al revés: si exactamente uno es verdadero y es A, entonces B es falso
+print(test(-v("B"), [f, v("A")]))             # True
 #+end_src
+
+#+RESULTS:
+: True
+: False
+: True
+
+Este es el uso típico en un banco de preguntas: el enunciado sortea uno de varios
+supuestos excluyentes (=unoDe=), y así la negación de los demás pasa a ser deducible.
 
 ** =alguno= — al menos uno verdadero
 
@@ -234,22 +352,229 @@ print(test(f, [v("B")]))    # True
 print(test(f, []))           # False
 #+end_src
 
+#+RESULTS:
+: True
+: False
+
+** =noDerivable= — la afirmación no se deduce de las hipótesis
+
+=test(P, hipotesis)= responde a /¿se deduce P?/. A veces la pregunta interesante es la
+contraria: /¿es P indecidible con lo que sabemos?/ Eso es lo que expresa =noDerivable(P)=:
+es verdadera cuando =P= *no* es consecuencia lógica de las hipótesis.
+
+#+begin_src python :exports both
+H = [v("A") >> v("B"), v("A")]
+print(test(noDerivable(v("B")), H))    # False: B sí se deduce
+print(test(noDerivable(v("C")), H))    # True:  C no se deduce
+print(test(noDerivable(-v("C")), H))   # True:  tampoco se deduce no-C
+#+end_src
+
+#+RESULTS:
+: False
+: True
+: True
+
+Obsérvese la diferencia entre las tres formas de preguntar por =C=:
+
+- =test(v("C"), H)= :: ¿es =C= verdadera (deducible)?
+- =test(-v("C"), H)= :: ¿es =C= falsa (deducible su negación)?
+- =test(noDerivable(v("C")), H)= :: ¿es =C= indecidible?
+
+Las dos primeras dan =False= en el ejemplo, y solo la tercera revela que =C= es
+indecidible. En un banco de preguntas esto permite, por ejemplo, formular una cuestión
+solo cuando el enunciado /no/ determina la respuesta (=precond = noDerivable(...)=).
+
+=noDerivable= puede combinarse con los demás conectivos (=-noDerivable(P)= significa
+/P sí es deducible/), pero *no puede aparecer dentro de las hipótesis*: no es una
+afirmación sobre el mundo, sino sobre lo que las hipótesis permiten deducir.
+Si se intenta, =test= lanza un =ValueError=.
+
+* Ver el razonamiento: =explica= y =tabla_verdad=
+
+Las dos funciones de esta sección no cambian ningún resultado: sirven para /entender/ por qué
+=test= responde lo que responde. Ambas se imprimen como texto en la terminal y como una tabla o
+un árbol coloreado en un cuaderno Jupyter. El cuaderno =Introduccion.ipynb= las usa para
+presentar el cálculo proposicional desde cero.
+
+** =explica= — el razonamiento paso a paso
+
+=explica(formula, hipotesis)= hace lo mismo que =test=, pero anotando cada paso. =calcprop=
+decide por el método de los /tableaux semánticos/: supone que existe un contraejemplo (hipótesis
+verdaderas y fórmula falsa), descompone esa suposición con reglas que se leen de las tablas de
+verdad de cada conectivo, y anota los valores de los átomos; cuando una rama exige dos valores
+distintos para el mismo átomo, se cierra. Si todas las ramas se cierran, no hay contraejemplo y
+la fórmula se deduce.
+
+#+begin_src python :exports both
+print(explica(v("B"), [v("A"), v("A") >> v("B")]))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+¿Se deduce  v('B')  de las premisas  v('A'), v('A') >> v('B') ?
+Método: buscamos un contraejemplo, es decir, un mundo en el que las premisas sean V y la fórmula F. Si toda rama se cierra por contradicción, no existe tal mundo y la fórmula se deduce.
+
+Buscamos un mundo en el que v('B') = F, v('A') = V, v('A') >> v('B') = V:
+v('B') = F  → anotamos v('B') = F.
+v('A') = V  → anotamos v('A') = V.
+v('A') >> v('B') = V  ⇒  por la regla de >>: o bien v('A') = F, o bien v('B') = V
+    Rama 1 de 2: suponemos v('A') = F
+        v('A') = F  ✗ contradice lo anotado (v('A') = V): rama cerrada.
+    Rama 2 de 2: suponemos v('B') = V
+        v('B') = V  ✗ contradice lo anotado (v('B') = F): rama cerrada.
+    ✗ Las 2 ramas se cierran.
+
+Conclusión: todas las ramas se cierran, no hay contraejemplo. v('B') se deduce de las premisas: test → True.
+#+end_example
+
+Cuando la fórmula no se deduce, la rama que queda abierta es el contraejemplo, y el objeto
+devuelto lo guarda en el atributo =contraejemplo= (el atributo =resultado= es el valor de =test=):
+
+#+begin_src python :exports both
+r = explica(v("A") >> v("C"), [v("A") >> v("B")])
+print(r.resultado)
+print(r.contraejemplo)
+#+end_src
+
+#+RESULTS:
+: False
+: {v('A'): True, v('C'): False, v('B'): True}
+
+** =tabla_verdad= — todos los mundos posibles
+
+=tabla_verdad(formula, hipotesis=[], subformulas=False)= construye la tabla de verdad: una fila
+por cada combinación de valores de los átomos (V primero). Si se dan hipótesis, marca con =*=
+las filas en que todas son verdaderas, que son las únicas que cuentan para la consecuencia
+lógica; la propiedad =consecuencia= coincide con =test=, pero calculada por fuerza bruta. Con
+=subformulas=True= se añaden las columnas intermedias, como en una tabla hecha a mano.
+
+#+begin_src python :exports both
+print(tabla_verdad(v("A"), [v("B"), v("A") >> v("B")]))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+   v('A') | v('B') | v('A') >> v('B') | v('A')
+----------+--------+------------------+-------
+ *   V    |   V    |        V         |   V   
+     V    |   F    |        F         |   V   
+ *   F    |   V    |        V         |   F   
+     F    |   F    |        V         |   F   
+
+En la fila 3 las premisas son V pero v('A') es F: es un contraejemplo, v('A') no se deduce (test → False).
+#+end_example
+
+Sin hipótesis, las propiedades =tautologia= y =contradiccion= resumen la última columna:
+
+#+begin_src python :exports both
+print(tabla_verdad(v("A") | -v("A")).tautologia)
+print(tabla_verdad((v("A") >> v("B")) ** (-v("B") >> -v("A")), subformulas=True))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+True
+v('A') | v('B') | v('A') >> v('B') | -v('B') | -v('A') | -v('B') >> -v('A') | (v('A') >> v('B')) ** (-v('B') >> -v('A'))
+-------+--------+------------------+---------+---------+--------------------+-------------------------------------------
+  V    |   V    |        V         |    F    |    F    |         V          |                     V                     
+  V    |   F    |        F         |    V    |    F    |         F          |                     V                     
+  F    |   V    |        V         |    F    |    V    |         V          |                     V                     
+  F    |   F    |        V         |    V    |    V    |         V          |                     V                     
+
+(v('A') >> v('B')) ** (-v('B') >> -v('A')) es V en las 4 filas: es una tautología (test → True).
+#+end_example
+
+* Funciones de bajo nivel
+
+Las funciones siguientes son las piezas con las que está construida =test=. En el uso
+normal no hacen falta, pero son útiles para depurar o para entender por qué una fórmula
+no se deduce.
+
+** =refuta= — un contraejemplo
+
+=refuta(P, hipotesis)= busca una asignación de valores de verdad a las variables que hace
+ciertas las hipótesis y falsa =P=. Si la encuentra, la devuelve como diccionario; si no
+existe (es decir, si =P= se deduce), devuelve el diccionario vacío ={}=.
+=test(P, H)= es exactamente =not refuta(P, H)=.
+
+#+begin_src python :exports both
+print(refuta(v("A") >> v("C"), [v("A") >> v("B")]))
+#+end_src
+
+#+RESULTS:
+: {v('A'): True, v('C'): False, v('B'): True}
+
+El resultado se lee: /con A y B verdaderas y C falsa, la hipótesis se cumple pero
+A → C no/. El contraejemplo no es único; =refuta= devuelve el primero que encuentra.
+
+** =span= — evaluar una fórmula en un mundo concreto
+
+=span(F, P)= devuelve el valor de verdad de =P= cuando las variables toman los valores del
+diccionario =F=. Las variables que no aparecen en =F= se consideran falsas.
+
+#+begin_src python :exports both
+F = {v("A"): True, v("B"): False}
+print(span(F, v("A") >> v("B")))   # False
+print(span(F, v("A") | v("B")))    # True
+#+end_src
+
+#+RESULTS:
+: False
+: True
+
+** =extension= — el motor
+
+=extension(objetivo, valores, premisas)= es el algoritmo de /tableaux semánticos/ que hay
+debajo de =refuta=: recibe una lista de pares =(fórmula, valor deseado)= y extiende el
+diccionario =valores= hasta satisfacerlos todos, o devuelve ={}= si es imposible.
+Está documentada en detalle en el código fuente literario =CalcProp.org=.
+
+* Representación de las fórmulas
+
+Al imprimir una fórmula se obtiene código Python que la reconstruye. Es decir,
+=eval(repr(P))= vuelve a dar =P=. Cada operación anidada aparece entre paréntesis, así
+que la representación es a la vez inequívoca para Python y legible para una persona:
+
+#+begin_src python :exports both
+P = -(v("A") & v("B")) >> unoDe(v("C"), v("D"))
+print(P)
+print(eval(repr(P)) == P)
+#+end_src
+
+#+RESULTS:
+: -(v('A') & v('B')) >> unoDe(v('C'), v('D'))
+: True
+
+Esta propiedad es la que permite a =qbank= guardar las fórmulas como texto en ficheros
+JSON y recuperarlas después sin cambios.
+
 * Referencia rápida
 
 #+begin_example
 from calcprop import *
 
 v("X")              → variable proposicional X
--v("X")             → negación de X  (¬X)
-v("X") & v("Y")     → conjunción     (X ∧ Y)
-v("X") | v("Y")     → disyunción     (X ∨ Y)
-v("X") >> v("Y")    → implicación    (X → Y)
-v("X") ** v("Y")    → bicondicional  (X ↔ Y)
+-v("X")             → negación de X  (no X)
+v("X") & v("Y")     → conjunción     (X y Y)
+v("X") | v("Y")     → disyunción     (X o Y)
+v("X") >> v("Y")    → implicación    (si X entonces Y)
+v("X") ** v("Y")    → bicondicional  (X si y solo si Y)
 True / False        → tautología / contradicción
+
+Precedencia (de mayor a menor): **, -, >>, &, |
+    → al mezclar conectivos, usa paréntesis:  (A & B) >> C
 
 test(formula, [h1, h2, ...])  → bool
     True si formula es consecuencia lógica de las hipótesis h1, h2, ...
 
 unoDe(A, B, C, ...)  → exactamente uno de los argumentos es verdadero
 alguno(A, B, C, ...) → al menos uno de los argumentos es verdadero
+noDerivable(P)       → P no se deduce de las hipótesis (P es indecidible)
+                       (solo en la fórmula, nunca en las hipótesis)
+
+explica(formula, [h1, ...])   → razonamiento paso a paso (y .resultado, .contraejemplo)
+tabla_verdad(formula, [h1, ...], subformulas=False) → tabla de verdad (y .consecuencia)
+
+refuta(formula, [h1, ...]) → contraejemplo (dict) o {} si no lo hay
+span({v("X"): True, ...}, formula) → valor de formula en ese mundo
 #+end_example

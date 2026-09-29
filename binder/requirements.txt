@@ -1,0 +1,3 @@
+# Entorno de MyBinder: instala este mismo repositorio (calcprop) y el kernel de Jupyter.
+.
+ipykernel

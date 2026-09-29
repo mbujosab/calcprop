@@ -36,3 +36,6 @@ packages/calcprop/*.html
 
 # Salida generada por los ejemplos
 ejemplos/
+
+# Jupyter
+.ipynb_checkpoints/

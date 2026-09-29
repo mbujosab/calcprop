@@ -1,8 +1,46 @@
 # calcprop
 
-Librería de cálculo proposicional en Python.
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/mbujosab/calcprop/main?labpath=Introduccion.ipynb)
 
-Generada a partir de `CalcProp.org` mediante `org-babel-tangle`.
+Librería de cálculo proposicional en Python. Construye fórmulas con
+`v('etiqueta')` y los operadores `&`, `|`, `-`, `>>` y `**`, y decide con
+`test(P, premisas)` si `P` es consecuencia lógica de las premisas.
+
+```python
+from calcprop import *
+
+A, B = v('llueve'), v('suelo mojado')
+test(B, [A, A >> B])        # True   (modus ponens)
+test(A, [B, A >> B])        # False  (afirmar el consecuente)
+test(unoDe(A, B), [A, -B])  # True
+```
+
+Cuando se mezclan conectivos distintos conviene poner paréntesis: la precedencia
+es la de Python, no la de la lógica (`A & B >> C` se lee `A & (B >> C)`).
+
+Para *ver* el razonamiento hay dos herramientas didácticas:
+
+```python
+print(explica(B, [A, A >> B]))       # árbol de refutación paso a paso
+print(tabla_verdad(B, [A, A >> B]))  # tabla de verdad con las filas que cumplen las premisas
+```
+
+- Introducción al cálculo proposicional, interactiva: [`Introduccion.ipynb`](Introduccion.ipynb);
+  se puede ejecutar sin instalar nada pulsando el botón *launch binder* de arriba.
+
+- Manual de uso: [`Manual.org`](Manual.org) / [`Manual.pdf`](Manual.pdf).
+- Código fuente documentado (programación literaria): [`CalcProp.org`](CalcProp.org);
+  `src/calcprop/__init__.py` se genera de él mediante `org-babel-tangle`.
+- Pruebas: `python -m pytest`.
+
+Es el motor lógico del paquete [`qbank`](https://github.com/mbujosab/calcprop-qbank)
+(generación de bancos de preguntas de opción múltiple).
+
+## Instalación
+
+```bash
+pip install calcprop
+```
 
 ## Autoría y licencia
 

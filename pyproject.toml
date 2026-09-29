@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "calcprop"
-version = "0.1.4"
+version = "0.2.0"
 description = "Propositional calculus library"
 authors = [
     {name = "Marcos Bujosa", email = "mbujosab@ucm.es"},
@@ -24,6 +24,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Education",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
