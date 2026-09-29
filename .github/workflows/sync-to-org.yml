@@ -1,0 +1,57 @@
+# Réplica automática de mbujosab/calcprop en la organización emlec-ucm.
+#
+# En cada push, este workflow vuelve a empujar todas las ramas y etiquetas a
+# https://github.com/emlec-ucm/calcprop, autenticándose con el secreto de
+# repositorio ORG_SYNC_TOKEN (Settings → Secrets and variables → Actions).
+#
+# El secreto es un "fine-grained personal access token" de la cuenta mbujosab
+# con: Resource owner = emlec-ucm, acceso solo al repositorio calcprop y
+# permiso Contents: Read and write. Se creó el 29-09-2026 y CADUCA EL
+# 29-09-2027 (GitHub avisa por correo unos días antes). Para renovarlo:
+#   1. https://github.com/settings/personal-access-tokens/new  (mismos datos)
+#   2. gh secret set ORG_SYNC_TOKEN -R mbujosab/calcprop   (pegar el token)
+# Si el token caduca, este workflow falla con un error de autenticación en el
+# paso "Push to org mirror" y basta con renovarlo; el siguiente push sincroniza.
+
+name: Sync to emlec-ucm
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  sync:
+    if: github.repository == 'mbujosab/calcprop'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Push to org mirror
+        env:
+          ORG_SYNC_TOKEN: ${{ secrets.ORG_SYNC_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Limpia el token de espacios/saltos de línea invisibles que puedan
+          # haberse colado al copiar/pegar el secreto.
+          CLEAN_TOKEN="$(printf '%s' "$ORG_SYNC_TOKEN" | tr -d '[:space:]')"
+
+          if [ -z "$CLEAN_TOKEN" ]; then
+            echo "::error::El secreto ORG_SYNC_TOKEN está vacío."
+            exit 1
+          fi
+
+          git remote add org https://github.com/emlec-ucm/calcprop.git
+
+          # Usa un header de autenticación en vez de incrustar el token en la
+          # URL: evita que caracteres especiales rompan la URL y no deja el
+          # token en el remote ni en los logs.
+          AUTH_HEADER="Authorization: Basic $(printf 'x-access-token:%s' "$CLEAN_TOKEN" | base64 -w0)"
+
+          git -c http.extraheader="$AUTH_HEADER" push org --all
+          git -c http.extraheader="$AUTH_HEADER" push org --tags
